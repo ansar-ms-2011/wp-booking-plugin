@@ -1,7 +1,7 @@
 ﻿import Vue from 'vue';
 import Router from 'vue-router';
 import Dashboard from '../components/Dashboard.vue';
-import Settings from '../components/Settings.vue';
+import Booking from '../components/Booking.vue';
 
 Vue.use(Router);
 
@@ -20,7 +20,7 @@ export default new Router({
         {
             path: '/settings',
             name: 'Settings',
-            component: Settings
+            component: Booking
         }
     ]
 });

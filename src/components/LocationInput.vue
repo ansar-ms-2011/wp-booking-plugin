@@ -10,16 +10,22 @@
           :ref="inputRef"
           type="text"
           :placeholder="placeholder"
-          :value="modelValue"
+          :value="internalValue"
           @input="handleInput"
           @blur="handleBlur"
           @keydown="handleKeydown"
           autocomplete="off"
           class="location-input"
+          :disabled="!apiLoaded"
       />
 
+      <!-- Loading indicator -->
+      <div v-if="isFetching" class="loading-indicator">
+        <i class="fas fa-spinner fa-spin"></i>
+      </div>
+
       <!-- Suggestions dropdown -->
-      <ul class="place-suggestions" v-if="suggestions.length">
+      <ul class="place-suggestions" v-if="suggestions.length && apiLoaded">
         <li
             v-for="(suggestion, idx) in suggestions"
             :key="idx"
@@ -74,7 +80,12 @@ export default {
       suggestions: [],
       activeSuggestionIndex: -1,
       sessionToken: null,
-      debounceTimer: null
+      debounceTimer: null,
+      apiLoaded: false,
+      apiLoadAttempts: 0,
+      isFetching: false,
+      placesService: null,
+      internalValue: this.modelValue
     }
   },
   computed: {
@@ -90,59 +101,100 @@ export default {
       clearTimeout(this.debounceTimer)
     }
   },
+  watch: {
+    modelValue(newVal) {
+      // Sync external changes to internal value
+      if (this.internalValue !== newVal) {
+        this.internalValue = newVal
+      }
+    }
+  },
   methods: {
     async initAutocomplete() {
-      // Wait for Places API to be ready
       await this.waitForPlacesAPI()
     },
 
     async waitForPlacesAPI() {
-      if (window.google?.maps?.importLibrary) {
-        await google.maps.importLibrary('places')
-        return
+      // Check if Google Maps API is already loaded
+      if (typeof window !== 'undefined' && window.google?.maps?.importLibrary) {
+        try {
+          await google.maps.importLibrary('places')
+          this.apiLoaded = true
+          console.log('Places API loaded successfully')
+          return
+        } catch (error) {
+          console.error('Error loading places library:', error)
+        }
       }
 
-      // If API not loaded yet, wait for it
+      // If not loaded, wait for it with retries
       return new Promise((resolve) => {
         const checkInterval = setInterval(() => {
-          if (window.google?.maps?.importLibrary) {
+          this.apiLoadAttempts++
+
+          if (typeof window !== 'undefined' && window.google?.maps?.importLibrary) {
             clearInterval(checkInterval)
-            google.maps.importLibrary('places').then(resolve)
+            google.maps.importLibrary('places')
+                .then(() => {
+                  this.apiLoaded = true
+                  console.log('Places API loaded successfully')
+                  resolve()
+                })
+                .catch((error) => {
+                  console.error('Error loading places library:', error)
+                  resolve()
+                })
+          } else if (this.apiLoadAttempts > 50) {
+            // Timeout after 5 seconds (50 * 100ms)
+            clearInterval(checkInterval)
+            console.error('Google Places API failed to load after multiple attempts')
+            this.apiLoaded = false
+            resolve()
           }
         }, 100)
       })
     },
 
     async fetchPlaceSuggestions(query) {
+      if (!this.apiLoaded) {
+        console.warn('Places API not loaded yet')
+        return
+      }
+
       if (query.length < 3) {
         this.suggestions = []
         return
       }
 
+      this.isFetching = true
+
       try {
-        const { AutocompleteSessionToken, AutocompleteSuggestion } = await google.maps.importLibrary('places')
+        const {AutocompleteSessionToken, AutocompleteSuggestion} = await google.maps.importLibrary('places')
 
-        // Create new session token for each search
-        this.sessionToken = new AutocompleteSessionToken()
+        if (!this.sessionToken) {
+          this.sessionToken = new AutocompleteSessionToken()
+        }
 
-        const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        const {suggestions} = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
           input: query,
           sessionToken: this.sessionToken
         })
 
-        this.suggestions = response.suggestions
+        this.suggestions = suggestions
             .map(suggestion => {
               if (suggestion.placePrediction) {
                 return {
                   placeId: suggestion.placePrediction.placeId,
                   text: suggestion.placePrediction.text?.text || '',
-                  fullText: suggestion.placePrediction.fullText?.text || ''
+                  fullText: suggestion.placePrediction.fullText?.text || '',
+                  types: suggestion.placePrediction.types || []
                 }
               } else if (suggestion.queryPrediction) {
                 return {
                   placeId: null,
                   text: suggestion.queryPrediction.text?.text || '',
-                  fullText: suggestion.queryPrediction.text?.text || ''
+                  fullText: suggestion.queryPrediction.text?.text || '',
+                  types: []
                 }
               }
               return null
@@ -153,38 +205,66 @@ export default {
       } catch (err) {
         console.error(`Error fetching suggestions:`, err)
         this.suggestions = []
+      } finally {
+        this.isFetching = false
       }
     },
 
     async selectSuggestion(suggestion) {
+      if (!this.apiLoaded) {
+        console.warn('Places API not loaded yet')
+        return
+      }
+
       try {
         let address = suggestion.text
+        let latitude = null
+        let longitude = null
 
         // Fetch detailed address if we have a placeId
         if (suggestion.placeId) {
-          const { FetchPlaceRequest } = await google.maps.importLibrary('places')
+          const { Place } = await google.maps.importLibrary('places')
 
-          const request = {
-            placeId: suggestion.placeId,
-            sessionToken: this.sessionToken,
-            fields: ['formattedAddress']
-          }
+          const place = new Place({
+            id: suggestion.placeId,
+            requestedLanguage: 'en'
+          })
 
-          const { place } = await FetchPlaceRequest.fetchPlace(request)
+          await place.fetchFields({
+            fields: [
+              'formattedAddress',
+              'displayName',
+              'location'
+            ]
+          })
+
           if (place.formattedAddress) {
             address = place.formattedAddress
+          } else if (place.displayName) {
+            address = place.displayName
+          }
+
+          // Extract coordinates
+          if (place.location) {
+            latitude = place.location.lat()
+            longitude = place.location.lng()
           }
         }
+        console.log('Selected place:', suggestion.text, 'Place ID:', suggestion.placeId, 'Address:', address, 'Latitude:', latitude, 'Longitude:', longitude)
 
-        // Emit the selected value
+        // Update reactive value
+        this.internalValue = address
+
+        // Emit address update
         this.$emit('update:modelValue', address)
-        this.$emit('place-selected', address, this.fieldKey)
 
-        // Update input field value
-        const input = this.$el.querySelector('.location-input')
-        if (input) {
-          input.value = address
-        }
+        // Emit full place data
+        this.$emit('place-selected', {
+          address,
+          latitude,
+          longitude,
+          placeId: suggestion.placeId
+        }, this.fieldKey)
 
         // Clear suggestions
         this.suggestions = []
@@ -195,18 +275,28 @@ export default {
 
       } catch (err) {
         console.error('Error fetching place details:', err)
-        // Fallback to suggestion text
+
+        this.internalValue = suggestion.text
+
         this.$emit('update:modelValue', suggestion.text)
-        this.$emit('place-selected', suggestion.text, this.fieldKey)
+
+        this.$emit('place-selected', {
+          address: suggestion.text,
+          latitude: null,
+          longitude: null,
+          placeId: suggestion.placeId || null
+        }, this.fieldKey)
+
         this.suggestions = []
       }
     },
 
     handleInput(event) {
       const query = event.target.value
+
+      this.internalValue = query
       this.$emit('update:modelValue', query)
 
-      // Debounce API calls
       if (this.debounceTimer) {
         clearTimeout(this.debounceTimer)
       }
@@ -249,7 +339,7 @@ export default {
       this.$nextTick(() => {
         const activeElement = document.querySelector('.place-suggestions li.active')
         if (activeElement) {
-          activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          activeElement.scrollIntoView({block: 'nearest', behavior: 'smooth'})
         }
       })
     }
@@ -258,6 +348,7 @@ export default {
 </script>
 
 <style scoped>
+
 .location-input-wrapper {
   display: flex;
   flex-direction: column;
@@ -285,18 +376,27 @@ export default {
 
 .location-input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem;
   border-radius: 1rem;
-  border: 1.5px solid #e2e8f0;
+  border: 2px solid #e2e8f0;
   font-family: inherit;
   font-size: 0.9rem;
   transition: 0.2s;
+  box-sizing: border-box;
 }
-
+.input-wrapper,
+.place-suggestions {
+  box-sizing: border-box;
+}
 .location-input:focus {
   outline: none;
   border-color: #1e4f8a;
   box-shadow: 0 0 0 3px rgba(30, 79, 138, 0.2);
+}
+
+.location-input:disabled {
+  background-color: #f7fafc;
+  cursor: not-allowed;
 }
 
 .has-error .location-input {
@@ -307,6 +407,21 @@ export default {
   font-size: 0.9rem;
   color: #dc2626;
   margin-top: 0.2rem;
+}
+
+.loading-indicator {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: #64748b;
+  background: white;
+  padding-left: 8px;
+}
+
+.loading-indicator i {
+  margin-right: 4px;
 }
 
 .place-suggestions {

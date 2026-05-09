@@ -1,7 +1,13 @@
 ﻿<template>
   <div class="booking-widget-wrapper">
-    <!-- Car Booking Widget - Three Step Form -->
-    <div class="booking-widget">
+    <!-- Loading state -->
+    <div v-if="!mapsApiLoaded" class="loading-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Loading booking system...</p>
+    </div>
+
+    <!-- Main widget -->
+    <div v-else class="booking-widget">
       <!-- Steps Header -->
       <div class="steps-header">
         <div class="step-tab" :class="{'active': currentStep === 1, 'completed': currentStep > 1}">
@@ -84,48 +90,41 @@
         <div class="step-pane" :class="{'active-pane': currentStep === 3}">
           <h3 style="margin-bottom: 0.25rem;">Journey Details</h3>
           <p style="margin-bottom: 1rem; color: #475569;">Set pickup, dropoff & travel preferences</p>
-          <div class="form-row">
-            <div class="form-group full-width" style="position: relative;">
-              <label>Pickup Location <span class="required">*</span></label>
-              <input type="text" ref="pickupInput" placeholder="Enter pickup address" v-model="formData.pickupLocation"
-                     @blur="validateField('pickupLocation')" autocomplete="off">
-              <!-- Suggestions dropdown -->
-              <ul class="place-suggestions" v-if="placeSuggestions.pickup.length">
-                <li v-for="(suggestion, idx) in placeSuggestions.pickup"
-                    :key="idx"
-                    :class="{'active': activeSuggestionIndex === idx}"
-                    @click="selectPlaceSuggestion(suggestion, 'pickup')"
-                    @mouseenter="activeSuggestionIndex = idx">
-                  <i class="fas fa-map-marker-alt"></i>
-                  <span>{{ suggestion.text }}</span>
-                </li>
-              </ul>
 
-              <div class="error-msg" v-if="fieldErrors.pickupLocation">{{ fieldErrors.pickupLocation }}</div>
+          <!-- Pickup Location -->
+          <div class="form-row">
+            <div class="form-group full-width">
+              <LocationInput
+                  v-model="formData.pickupLocation"
+                  label="Pickup Location"
+                  placeholder="Enter pickup address"
+                  :required="true"
+                  :error-message="fieldErrors.pickupLocation"
+                  input-ref="pickupInput"
+                  field-key="pickup"
+                  @validate="validateField"
+                  @blur="validateField"
+              />
             </div>
           </div>
+
+          <!-- Dropoff Location -->
           <div class="form-row">
-            <div class="form-group full-width" style="position: relative;">
-              <label>Pickup Location <span class="required">*</span></label>
-              <input type="text" ref="dropoffInput" placeholder="Enter dropoff address" v-model="formData.dropoffLocation"
-                     @blur="validateField('dropoffLocation')" autocomplete="off">
-
-              <!-- Suggestions dropdown -->
-              <ul class="place-suggestions" v-if="placeSuggestions.dropoff.length">
-                <li v-for="(suggestion, idx) in placeSuggestions.dropoff"
-                    :key="idx"
-                    :class="{'active': activeSuggestionIndex === idx}"
-                    @click="selectPlaceSuggestion(suggestion, 'dropoff')"
-                    @mouseenter="activeSuggestionIndex = idx">
-                  <i class="fas fa-map-marker-alt"></i>
-                  <span>{{ suggestion.text }}</span>
-                </li>
-              </ul>
-
-              <div class="error-msg" v-if="fieldErrors.pickupLocation">{{ fieldErrors.pickupLocation }}</div>
+            <div class="form-group full-width">
+              <LocationInput
+                  v-model="formData.dropoffLocation"
+                  label="Dropoff Location"
+                  placeholder="Enter dropoff address"
+                  :required="true"
+                  :error-message="fieldErrors.dropoffLocation"
+                  input-ref="dropoffInput"
+                  field-key="dropoff"
+                  @validate="validateField"
+                  @blur="validateField"
+              />
             </div>
-
           </div>
+
           <div class="form-row">
             <div class="form-group">
               <label>Pickup Date & Time <span class="required">*</span></label>
@@ -137,19 +136,25 @@
               <label for="roundtrip" style="text-transform: none; font-weight: 500;">Round trip (return journey)</label>
             </div>
           </div>
+
           <!-- Return location - conditional rendering when roundtrip checked -->
           <div class="return-location" v-if="formData.isRoundtrip">
             <div class="form-group full-width">
-              <label>Return Pickup Location (for return journey) <span class="required">*</span></label>
-              <input type="text" ref="returnInput" placeholder="Address for return trip pickup"
-                     v-model="formData.returnPickupLocation" @blur="validateField('returnPickupLocation')">
-              <div class="error-msg" v-if="fieldErrors.returnPickupLocation">{{
-                  fieldErrors.returnPickupLocation
-                }}
-              </div>
+              <LocationInput
+                  v-model="formData.returnPickupLocation"
+                  label="Return Pickup Location"
+                  placeholder="Address for return trip pickup"
+                  :required="true"
+                  :error-message="fieldErrors.returnPickupLocation"
+                  input-ref="returnInput"
+                  field-key="return"
+                  @validate="validateField"
+                  @blur="validateField"
+              />
               <small style="color: #4b5563;">Usually from drop off point, but you can specify custom</small>
             </div>
           </div>
+
           <div class="summary-text" v-if="formData.selectedCar">
             <i class="fas fa-car"></i> <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
             <i class="fas fa-user"></i> {{ formData.firstName || 'Guest' }} {{ formData.lastName || '' }}
@@ -166,11 +171,18 @@
 </template>
 
 <script>
+import LocationInput from './LocationInput.vue'
+import googleMapsLoader from '../utils/googleMapsLoader'
+
 export default {
   name: 'BookingWidget',
+  components: {
+    LocationInput
+  },
   data() {
     return {
       currentStep: 1,
+      mapsApiLoaded: false,
       formData: {
         selectedCar: null,
         firstName: '',
@@ -204,52 +216,27 @@ export default {
       },
       stepErrors: {
         car: false
-      },
-      // Store autocomplete instances
-      pickupAutocomplete: null,
-      dropoffAutocomplete: null,
-      returnAutocomplete: null,
-      placeSuggestions: {
-        pickup: [],
-        dropoff: [],
-        return: []
-      },
-      activeSuggestionIndex: -1,
-      suggestionSessionTokens: {
-        pickup: null,
-        dropoff: null,
-        return: null
       }
     }
   },
-  watch: {
-    'formData.isRoundtrip'(val) {
-      if (val) {
-        this.$nextTick(() => {
-          this.initAutocomplete();
-        });
-      }
-    }
-  },
-  mounted() {
-    // Load settings from parent (optional, keep original loadSettings if needed)
-    this.loadSettings();
-    // Initialize Google Places Autocomplete
-    this.initAutocomplete();
-  },
-  beforeDestroy() {
-    // Clean up autocomplete listeners if needed
-    if (this.pickupAutocomplete) {
-      google.maps.event.clearInstanceListeners(this.pickupAutocomplete);
-    }
-    if (this.dropoffAutocomplete) {
-      google.maps.event.clearInstanceListeners(this.dropoffAutocomplete);
-    }
-    if (this.returnAutocomplete) {
-      google.maps.event.clearInstanceListeners(this.returnAutocomplete);
-    }
+  async mounted() {
+    await this.loadSettings()
+    await this.loadGoogleMapsAPI()
   },
   methods: {
+    async loadGoogleMapsAPI() {
+      try {
+        // You can move this API key to environment variables
+        const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs'
+        await googleMapsLoader.load(apiKey)
+        this.mapsApiLoaded = true
+        console.log('Google Maps API loaded successfully')
+      } catch (error) {
+        console.error('Failed to load Google Maps API:', error)
+        this.$message.error('Failed to load maps service. Please refresh the page.')
+      }
+    },
+
     // Original loadSettings method preserved
     async loadSettings() {
       try {
@@ -261,6 +248,7 @@ export default {
         this.$message.error('Failed to load settings');
       }
     },
+
     async saveSettings() {
       try {
         const response = await this.$api.post('/settings', this.settings);
@@ -271,15 +259,18 @@ export default {
         this.$message.error('Failed to save settings');
       }
     },
+
     // Car selection
     selectCar(carId) {
       this.formData.selectedCar = carId;
       this.stepErrors.car = false;
     },
+
     getCarName() {
       const car = this.carOptions.find(c => c.id === this.formData.selectedCar);
       return car ? car.name : 'Not selected';
     },
+
     // Validation for individual fields
     validateField(field) {
       let error = '';
@@ -314,6 +305,7 @@ export default {
       this.fieldErrors[field] = error;
       return !error;
     },
+
     // Validate step 1 (car selection)
     validateStep1() {
       if (!this.formData.selectedCar) {
@@ -322,6 +314,7 @@ export default {
       }
       return true;
     },
+
     // Validate step 2 (personal details)
     validateStep2() {
       const fields = ['firstName', 'lastName', 'primaryPhone', 'email'];
@@ -331,6 +324,7 @@ export default {
       });
       return isValid;
     },
+
     // Validate step 3 (locations + datetime + return if roundtrip)
     validateStep3() {
       let isValid = true;
@@ -342,18 +336,16 @@ export default {
       }
       return isValid;
     },
+
     // Navigation: next step
     nextStep(step) {
       if (step === 1 && this.validateStep1()) {
         this.currentStep = 2;
       } else if (step === 2 && this.validateStep2()) {
         this.currentStep = 3;
-        // Re-initialize autocomplete when step 3 becomes active (ensures DOM ready)
-        this.$nextTick(() => {
-          this.initAutocomplete();
-        });
       }
     },
+
     prevStep() {
       if (this.currentStep > 1) {
         this.currentStep--;
@@ -387,226 +379,13 @@ export default {
       };
       console.log('Booking submitted:', bookingPayload);
       this.$message.success('Booking confirmed! Check console for details.');
-      // You can uncomment and use your existing API pattern:
-      // this.$api.post('/bookings', bookingPayload).then(...)
-    },
-    // Initialize Google Places Autocomplete for location inputs
-    async initAutocomplete() {
-      try {
-        // await this.$gmapApiPromiseLazy();
-        await this.loadNewPlacesAPI();
-
-        // Attach input event listeners
-        this.setupPlaceAutocomplete('pickupInput', 'pickup');
-        this.setupPlaceAutocomplete('dropoffInput', 'dropoff');
-        this.setupPlaceAutocomplete('returnInput', 'return');
-
-        // Close suggestions when clicking outside
-        document.addEventListener('click', this.closeAllSuggestions);
-      } catch (error) {
-        console.error('Error initializing Places API:', error);
-      }
-    },
-
-    async loadNewPlacesAPI() {
-      // Check if API is already loaded
-      if (window.google?.maps?.importLibrary) {
-        await google.maps.importLibrary('places');
-        return;
-      }
-
-      // Load the beta version with new Places API
-      // const apiKey = 'AIzaSyCI3JDsXcBaCQsWVawwk2ed4SvAghkEeU8';
-      const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs';
-      // const apiKey = 'AIzaSyCAUFMlgUq9NhSxRi-tiXReAt1LAB8UF6I';   //Marquis
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
-      script.async = true;
-
-      await new Promise((resolve, reject) => {
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-
-      await google.maps.importLibrary('places');
-      console.log('Places API loaded successfully');
-    },
-
-    async fetchPlaceSuggestions(query, fieldKey) {
-      console.log('Fetching suggestions for:', query);
-      if (query.length < 3) {
-        this.placeSuggestions[fieldKey] = [];
-        return;
-      }
-
-      try {
-        const { AutocompleteSessionToken, AutocompleteSuggestion } = await google.maps.importLibrary('places');
-        const sessionToken = new AutocompleteSessionToken();
-        this.suggestionSessionTokens[fieldKey] = sessionToken;
-
-        // CORRECTED: Removed includeQueryPredictions
-        const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-          sessionToken: sessionToken,
-          // region: 'us'
-        });
-        // Map the suggestions correctly
-        this.placeSuggestions[fieldKey] = response.suggestions.map(suggestion => {
-          // Handle different suggestion types
-          console.log('Suggestion:', suggestion);
-          if (suggestion.placePrediction) {
-            return {
-              placeId: suggestion.placePrediction.placeId,
-              text: suggestion.placePrediction.text?.text || '',
-              fullText: suggestion.placePrediction.fullText?.text || ''
-            };
-          } else if (suggestion.queryPrediction) {
-            return {
-              placeId: null,
-              text: suggestion.queryPrediction.text?.text || '',
-              fullText: suggestion.queryPrediction.text?.text || ''
-            };
-          }
-          return null;
-        }).filter(s => s !== null);
-
-        this.activeSuggestionIndex = -1;
-      } catch (err) {
-        console.error(`Error fetching suggestions for ${fieldKey}:`, err);
-        this.placeSuggestions[fieldKey] = [];
-      }
-    },
-
-    setupPlaceAutocomplete(refName, fieldKey) {
-      const input = this.$refs[refName];
-      if (!input) return;
-
-      // Remove any existing listener
-      if (input._placeListener) {
-        input.removeEventListener('input', input._placeListener);
-      }
-
-      const handler = this.debounce(async (e) => {
-        const query = e.target.value;
-        await this.fetchPlaceSuggestions(query, fieldKey);
-      }, 300);
-
-      input.addEventListener('input', handler);
-      input._placeListener = handler;
-
-      // Handle keyboard navigation
-      input.addEventListener('keydown', (e) => {
-        const suggestions = this.placeSuggestions[fieldKey];
-        if (suggestions.length === 0) return;
-
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          this.activeSuggestionIndex = Math.min(this.activeSuggestionIndex + 1, suggestions.length - 1);
-          this.scrollSuggestionIntoView();
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          this.activeSuggestionIndex = Math.max(this.activeSuggestionIndex - 1, -1);
-          this.scrollSuggestionIntoView();
-        } else if (e.key === 'Enter' && this.activeSuggestionIndex >= 0) {
-          e.preventDefault();
-          this.selectPlaceSuggestion(suggestions[this.activeSuggestionIndex], fieldKey);
-        } else if (e.key === 'Escape') {
-          this.placeSuggestions[fieldKey] = [];
-          this.activeSuggestionIndex = -1;
-        }
-      });
-    },
-    async selectPlaceSuggestion(suggestion, fieldKey) {
-      try {
-        let address = suggestion.text;
-
-        // Only fetch place details if we have a placeId
-        if (suggestion.placeId) {
-          const { FetchPlaceRequest } = await google.maps.importLibrary('places');
-
-          const request = {
-            placeId: suggestion.placeId,
-            sessionToken: this.suggestionSessionTokens[fieldKey],
-            fields: ['formattedAddress']
-          };
-
-          const { place } = await FetchPlaceRequest.fetchPlace(request);
-          if (place.formattedAddress) {
-            address = place.formattedAddress;
-          }
-        }
-
-        // Update the corresponding form field
-        const fieldMap = {
-          pickup: 'pickupLocation',
-          dropoff: 'dropoffLocation',
-          return: 'returnPickupLocation'
-        };
-
-        this.formData[fieldMap[fieldKey]] = address;
-
-        // Update input field value
-        const inputRefMap = {
-          pickup: 'pickupInput',
-          dropoff: 'dropoffInput',
-          return: 'returnInput'
-        };
-
-        if (this.$refs[inputRefMap[fieldKey]]) {
-          this.$refs[inputRefMap[fieldKey]].value = address;
-        }
-
-        // Clear suggestions
-        this.placeSuggestions[fieldKey] = [];
-        this.activeSuggestionIndex = -1;
-
-        // Trigger validation
-        this.validateField(fieldMap[fieldKey]);
-
-      } catch (err) {
-        console.error('Error fetching place details:', err);
-        // Fallback: use the suggestion text
-        const fieldMap = {
-          pickup: 'pickupLocation',
-          dropoff: 'dropoffLocation',
-          return: 'returnPickupLocation'
-        };
-        this.formData[fieldMap[fieldKey]] = suggestion.text;
-        this.validateField(fieldMap[fieldKey]);
-        this.placeSuggestions[fieldKey] = [];
-      }
-    },
-    scrollSuggestionIntoView() {
-      this.$nextTick(() => {
-        const activeElement = document.querySelector('.suggestion-item.active');
-        if (activeElement) {
-          activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
-      });
-    },
-
-    closeAllSuggestions(event) {
-      // Don't close if clicking inside an input or suggestion
-      if (event.target.closest('.place-suggestions') || event.target.closest('input')) {
-        return;
-      }
-      this.placeSuggestions = { pickup: [], dropoff: [], return: [] };
-      this.activeSuggestionIndex = -1;
-    },
-
-    debounce(fn, delay) {
-      let timeout;
-      return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => fn.apply(this, args), delay);
-      };
     }
-  },
+  }
 }
 </script>
 
 <style scoped>
+/* Keep all existing styles except remove place-suggestions and location input specific styles */
 .booking-widget-wrapper {
   padding: 5px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -789,34 +568,6 @@ input:focus {
   margin-top: 0.2rem;
 }
 
-/* Fix Google Places Autocomplete dropdown visibility in modals/overflow containers */
-.pac-container {
-  z-index: 9999 !important;
-  border-radius: 0 0 1rem 1rem;
-  border-top: none;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  font-family: inherit;
-}
-
-.pac-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.pac-item:hover {
-  background-color: #f1f5f9;
-}
-
-.pac-item-query {
-  font-size: 14px;
-  color: #1e293b;
-}
-
-.pac-icon {
-  margin-right: 10px;
-}
-
 .checkbox-group {
   display: flex;
   align-items: center;
@@ -898,51 +649,44 @@ input:focus {
     display: none;
   }
 }
-.place-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-  max-height: 300px;
-  overflow-y: auto;
-  z-index: 1000;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+
+
+.booking-widget-wrapper {
+  padding: 5px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 500px;
 }
 
-.place-suggestions li {
+.loading-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: background 0.15s;
-  font-size: 0.85rem;
+  justify-content: center;
+  min-height: 400px;
+  background: white;
+  border-radius: 2rem;
+  padding: 2rem;
 }
 
-.place-suggestions li:hover,
-.place-suggestions li.active {
-  background: #f1f5f9;
+.loading-state i {
+  font-size: 3rem;
+  color: #1e4f8a;
+  margin-bottom: 1rem;
 }
 
-.place-suggestions li i {
-  color: #64748b;
-  width: 16px;
-  font-size: 0.9rem;
+.loading-state p {
+  color: #475569;
+  font-size: 1rem;
 }
 
-.place-suggestions li span {
-  flex: 1;
-  color: #1e293b;
-}
-
-/* Position relative for containing the dropdown */
-.form-group {
-  position: relative;
+/* Rest of your existing styles remain the same */
+.booking-widget {
+  background: yellow;
+  max-width: 980px;
+  width: 100%;
+  border-radius: 2rem;
+  box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  margin: 0 auto;
 }
 </style>

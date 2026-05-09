@@ -1,0 +1,74 @@
+﻿/* Elementor-inspired styles */
+.mevp-admin-wrap {
+    margin: 20px 20px 0 0;
+    background: #f1f3f5;
+    min-height: calc(100vh - 100px);
+}
+
+.mevp-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.mevp-card {
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+.mevp-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.mevp-button {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 3px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: #0073aa;
+    color: white;
+}
+
+.mevp-button:hover {
+    background: #005a87;
+}
+
+.mevp-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mevp-table th,
+.mevp-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.mevp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.mevp-modal-content {
+    background: white;
+    border-radius: 4px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}

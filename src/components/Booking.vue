@@ -85,20 +85,46 @@
           <h3 style="margin-bottom: 0.25rem;">Journey Details</h3>
           <p style="margin-bottom: 1rem; color: #475569;">Set pickup, dropoff & travel preferences</p>
           <div class="form-row">
-            <div class="form-group full-width">
+            <div class="form-group full-width" style="position: relative;">
               <label>Pickup Location <span class="required">*</span></label>
               <input type="text" ref="pickupInput" placeholder="Enter pickup address" v-model="formData.pickupLocation"
-                     @blur="validateField('pickupLocation')">
+                     @blur="validateField('pickupLocation')" autocomplete="off">
+              <!-- Suggestions dropdown -->
+              <ul class="place-suggestions" v-if="placeSuggestions.pickup.length">
+                <li v-for="(suggestion, idx) in placeSuggestions.pickup"
+                    :key="idx"
+                    :class="{'active': activeSuggestionIndex === idx}"
+                    @click="selectPlaceSuggestion(suggestion, 'pickup')"
+                    @mouseenter="activeSuggestionIndex = idx">
+                  <i class="fas fa-map-marker-alt"></i>
+                  <span>{{ suggestion.text }}</span>
+                </li>
+              </ul>
+
               <div class="error-msg" v-if="fieldErrors.pickupLocation">{{ fieldErrors.pickupLocation }}</div>
             </div>
           </div>
           <div class="form-row">
-            <div class="form-group full-width">
-              <label>Dropoff Location <span class="required">*</span></label>
-              <input type="text" ref="dropoffInput" placeholder="Enter dropoff address"
-                     v-model="formData.dropoffLocation" @blur="validateField('dropoffLocation')">
-              <div class="error-msg" v-if="fieldErrors.dropoffLocation">{{ fieldErrors.dropoffLocation }}</div>
+            <div class="form-group full-width" style="position: relative;">
+              <label>Pickup Location <span class="required">*</span></label>
+              <input type="text" ref="dropoffInput" placeholder="Enter dropoff address" v-model="formData.dropoffLocation"
+                     @blur="validateField('dropoffLocation')" autocomplete="off">
+
+              <!-- Suggestions dropdown -->
+              <ul class="place-suggestions" v-if="placeSuggestions.dropoff.length">
+                <li v-for="(suggestion, idx) in placeSuggestions.dropoff"
+                    :key="idx"
+                    :class="{'active': activeSuggestionIndex === idx}"
+                    @click="selectPlaceSuggestion(suggestion, 'dropoff')"
+                    @mouseenter="activeSuggestionIndex = idx">
+                  <i class="fas fa-map-marker-alt"></i>
+                  <span>{{ suggestion.text }}</span>
+                </li>
+              </ul>
+
+              <div class="error-msg" v-if="fieldErrors.pickupLocation">{{ fieldErrors.pickupLocation }}</div>
             </div>
+
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -182,7 +208,18 @@ export default {
       // Store autocomplete instances
       pickupAutocomplete: null,
       dropoffAutocomplete: null,
-      returnAutocomplete: null
+      returnAutocomplete: null,
+      placeSuggestions: {
+        pickup: [],
+        dropoff: [],
+        return: []
+      },
+      activeSuggestionIndex: -1,
+      suggestionSessionTokens: {
+        pickup: null,
+        dropoff: null,
+        return: null
+      }
     }
   },
   watch: {
@@ -322,6 +359,7 @@ export default {
         this.currentStep--;
       }
     },
+
     // Submit final booking with frontend validation
     submitBooking() {
       if (!this.validateStep3()) {
@@ -354,69 +392,217 @@ export default {
     },
     // Initialize Google Places Autocomplete for location inputs
     async initAutocomplete() {
-      console.log('initAutocomplete called');
-      
       try {
-        // Use vue2-google-maps promise to wait for API loading
-        await this.$gmapApiPromiseLazy();
-        
-        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-          console.warn('Google Maps API still not fully available after promise');
-          return;
+        // await this.$gmapApiPromiseLazy();
+        await this.loadNewPlacesAPI();
+
+        // Attach input event listeners
+        this.setupPlaceAutocomplete('pickupInput', 'pickup');
+        this.setupPlaceAutocomplete('dropoffInput', 'dropoff');
+        this.setupPlaceAutocomplete('returnInput', 'return');
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', this.closeAllSuggestions);
+      } catch (error) {
+        console.error('Error initializing Places API:', error);
+      }
+    },
+
+    async loadNewPlacesAPI() {
+      // Check if API is already loaded
+      if (window.google?.maps?.importLibrary) {
+        await google.maps.importLibrary('places');
+        return;
+      }
+
+      // Load the beta version with new Places API
+      // const apiKey = 'AIzaSyCI3JDsXcBaCQsWVawwk2ed4SvAghkEeU8';
+      const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs';
+      // const apiKey = 'AIzaSyCAUFMlgUq9NhSxRi-tiXReAt1LAB8UF6I';   //Marquis
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
+      script.async = true;
+
+      await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+
+      await google.maps.importLibrary('places');
+      console.log('Places API loaded successfully');
+    },
+
+    async fetchPlaceSuggestions(query, fieldKey) {
+      console.log('Fetching suggestions for:', query);
+      if (query.length < 3) {
+        this.placeSuggestions[fieldKey] = [];
+        return;
+      }
+
+      try {
+        const { AutocompleteSessionToken, AutocompleteSuggestion } = await google.maps.importLibrary('places');
+        const sessionToken = new AutocompleteSessionToken();
+        this.suggestionSessionTokens[fieldKey] = sessionToken;
+
+        // CORRECTED: Removed includeQueryPredictions
+        const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: query,
+          sessionToken: sessionToken,
+          // region: 'us'
+        });
+        // Map the suggestions correctly
+        this.placeSuggestions[fieldKey] = response.suggestions.map(suggestion => {
+          // Handle different suggestion types
+          console.log('Suggestion:', suggestion);
+          if (suggestion.placePrediction) {
+            return {
+              placeId: suggestion.placePrediction.placeId,
+              text: suggestion.placePrediction.text?.text || '',
+              fullText: suggestion.placePrediction.fullText?.text || ''
+            };
+          } else if (suggestion.queryPrediction) {
+            return {
+              placeId: null,
+              text: suggestion.queryPrediction.text?.text || '',
+              fullText: suggestion.queryPrediction.text?.text || ''
+            };
+          }
+          return null;
+        }).filter(s => s !== null);
+
+        this.activeSuggestionIndex = -1;
+      } catch (err) {
+        console.error(`Error fetching suggestions for ${fieldKey}:`, err);
+        this.placeSuggestions[fieldKey] = [];
+      }
+    },
+
+    setupPlaceAutocomplete(refName, fieldKey) {
+      const input = this.$refs[refName];
+      if (!input) return;
+
+      // Remove any existing listener
+      if (input._placeListener) {
+        input.removeEventListener('input', input._placeListener);
+      }
+
+      const handler = this.debounce(async (e) => {
+        const query = e.target.value;
+        await this.fetchPlaceSuggestions(query, fieldKey);
+      }, 300);
+
+      input.addEventListener('input', handler);
+      input._placeListener = handler;
+
+      // Handle keyboard navigation
+      input.addEventListener('keydown', (e) => {
+        const suggestions = this.placeSuggestions[fieldKey];
+        if (suggestions.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.activeSuggestionIndex = Math.min(this.activeSuggestionIndex + 1, suggestions.length - 1);
+          this.scrollSuggestionIntoView();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.activeSuggestionIndex = Math.max(this.activeSuggestionIndex - 1, -1);
+          this.scrollSuggestionIntoView();
+        } else if (e.key === 'Enter' && this.activeSuggestionIndex >= 0) {
+          e.preventDefault();
+          this.selectPlaceSuggestion(suggestions[this.activeSuggestionIndex], fieldKey);
+        } else if (e.key === 'Escape') {
+          this.placeSuggestions[fieldKey] = [];
+          this.activeSuggestionIndex = -1;
+        }
+      });
+    },
+    async selectPlaceSuggestion(suggestion, fieldKey) {
+      try {
+        let address = suggestion.text;
+
+        // Only fetch place details if we have a placeId
+        if (suggestion.placeId) {
+          const { FetchPlaceRequest } = await google.maps.importLibrary('places');
+
+          const request = {
+            placeId: suggestion.placeId,
+            sessionToken: this.suggestionSessionTokens[fieldKey],
+            fields: ['formattedAddress']
+          };
+
+          const { place } = await FetchPlaceRequest.fetchPlace(request);
+          if (place.formattedAddress) {
+            address = place.formattedAddress;
+          }
         }
 
-        console.log('Google Maps API ready, initializing autocomplete instances');
-      // Pickup input
-      const pickupInput = this.$refs.pickupInput;
-      if (pickupInput && !this.pickupAutocomplete) {
-        console.log('Initializing pickup autocomplete');
-        this.pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, {
-          types: ['geocode', 'establishment'],
-          componentRestrictions: {country: 'us'} // optional, adjust as needed
-        });
-        this.pickupAutocomplete.addListener('place_changed', () => {
-          const place = this.pickupAutocomplete.getPlace();
-          if (place && place.formatted_address) {
-            this.formData.pickupLocation = place.formatted_address;
-            this.validateField('pickupLocation');
-          }
-        });
+        // Update the corresponding form field
+        const fieldMap = {
+          pickup: 'pickupLocation',
+          dropoff: 'dropoffLocation',
+          return: 'returnPickupLocation'
+        };
+
+        this.formData[fieldMap[fieldKey]] = address;
+
+        // Update input field value
+        const inputRefMap = {
+          pickup: 'pickupInput',
+          dropoff: 'dropoffInput',
+          return: 'returnInput'
+        };
+
+        if (this.$refs[inputRefMap[fieldKey]]) {
+          this.$refs[inputRefMap[fieldKey]].value = address;
+        }
+
+        // Clear suggestions
+        this.placeSuggestions[fieldKey] = [];
+        this.activeSuggestionIndex = -1;
+
+        // Trigger validation
+        this.validateField(fieldMap[fieldKey]);
+
+      } catch (err) {
+        console.error('Error fetching place details:', err);
+        // Fallback: use the suggestion text
+        const fieldMap = {
+          pickup: 'pickupLocation',
+          dropoff: 'dropoffLocation',
+          return: 'returnPickupLocation'
+        };
+        this.formData[fieldMap[fieldKey]] = suggestion.text;
+        this.validateField(fieldMap[fieldKey]);
+        this.placeSuggestions[fieldKey] = [];
       }
-      // Dropoff input
-      const dropoffInput = this.$refs.dropoffInput;
-      if (dropoffInput && !this.dropoffAutocomplete) {
-        console.log('Initializing dropoff autocomplete');
-        this.dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, {
-          types: ['geocode', 'establishment']
-        });
-        this.dropoffAutocomplete.addListener('place_changed', () => {
-          const place = this.dropoffAutocomplete.getPlace();
-          if (place && place.formatted_address) {
-            this.formData.dropoffLocation = place.formatted_address;
-            this.validateField('dropoffLocation');
-          }
-        });
+    },
+    scrollSuggestionIntoView() {
+      this.$nextTick(() => {
+        const activeElement = document.querySelector('.suggestion-item.active');
+        if (activeElement) {
+          activeElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      });
+    },
+
+    closeAllSuggestions(event) {
+      // Don't close if clicking inside an input or suggestion
+      if (event.target.closest('.place-suggestions') || event.target.closest('input')) {
+        return;
       }
-      // Return location input (only exists when roundtrip is true, but we initialize if ref exists)
-      const returnInput = this.$refs.returnInput;
-      if (returnInput && !this.returnAutocomplete) {
-        console.log('Initializing return autocomplete');
-        this.returnAutocomplete = new google.maps.places.Autocomplete(returnInput, {
-          types: ['geocode', 'establishment']
-        });
-        this.returnAutocomplete.addListener('place_changed', () => {
-          const place = this.returnAutocomplete.getPlace();
-          if (place && place.formatted_address) {
-            this.formData.returnPickupLocation = place.formatted_address;
-            this.validateField('returnPickupLocation');
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error initializing Google Maps Autocomplete:', error);
+      this.placeSuggestions = { pickup: [], dropoff: [], return: [] };
+      this.activeSuggestionIndex = -1;
+    },
+
+    debounce(fn, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+      };
     }
-  }
-},
+  },
 }
 </script>
 
@@ -711,5 +897,52 @@ input:focus {
   .step-tab span:not(.step-num) {
     display: none;
   }
+}
+.place-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.place-suggestions li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.85rem;
+}
+
+.place-suggestions li:hover,
+.place-suggestions li.active {
+  background: #f1f5f9;
+}
+
+.place-suggestions li i {
+  color: #64748b;
+  width: 16px;
+  font-size: 0.9rem;
+}
+
+.place-suggestions li span {
+  flex: 1;
+  color: #1e293b;
+}
+
+/* Position relative for containing the dropdown */
+.form-group {
+  position: relative;
 }
 </style>

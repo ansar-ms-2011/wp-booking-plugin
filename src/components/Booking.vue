@@ -138,6 +138,7 @@
     </div>
   </div>
 </template>
+
 <script>
 export default {
   name: 'BookingWidget',
@@ -182,6 +183,15 @@ export default {
       pickupAutocomplete: null,
       dropoffAutocomplete: null,
       returnAutocomplete: null
+    }
+  },
+  watch: {
+    'formData.isRoundtrip'(val) {
+      if (val) {
+        this.$nextTick(() => {
+          this.initAutocomplete();
+        });
+      }
     }
   },
   mounted() {
@@ -343,16 +353,23 @@ export default {
       // this.$api.post('/bookings', bookingPayload).then(...)
     },
     // Initialize Google Places Autocomplete for location inputs
-    initAutocomplete() {
-      // Check if Google Maps API is loaded and available
-      if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-        console.warn('Google Maps API not loaded yet. Retry in 1 second.');
-        setTimeout(() => this.initAutocomplete(), 1000);
-        return;
-      }
+    async initAutocomplete() {
+      console.log('initAutocomplete called');
+      
+      try {
+        // Use vue2-google-maps promise to wait for API loading
+        await this.$gmapApiPromiseLazy();
+        
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+          console.warn('Google Maps API still not fully available after promise');
+          return;
+        }
+
+        console.log('Google Maps API ready, initializing autocomplete instances');
       // Pickup input
       const pickupInput = this.$refs.pickupInput;
       if (pickupInput && !this.pickupAutocomplete) {
+        console.log('Initializing pickup autocomplete');
         this.pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, {
           types: ['geocode', 'establishment'],
           componentRestrictions: {country: 'us'} // optional, adjust as needed
@@ -368,6 +385,7 @@ export default {
       // Dropoff input
       const dropoffInput = this.$refs.dropoffInput;
       if (dropoffInput && !this.dropoffAutocomplete) {
+        console.log('Initializing dropoff autocomplete');
         this.dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, {
           types: ['geocode', 'establishment']
         });
@@ -382,6 +400,7 @@ export default {
       // Return location input (only exists when roundtrip is true, but we initialize if ref exists)
       const returnInput = this.$refs.returnInput;
       if (returnInput && !this.returnAutocomplete) {
+        console.log('Initializing return autocomplete');
         this.returnAutocomplete = new google.maps.places.Autocomplete(returnInput, {
           types: ['geocode', 'establishment']
         });
@@ -393,8 +412,11 @@ export default {
           }
         });
       }
+    } catch (error) {
+      console.error('Error initializing Google Maps Autocomplete:', error);
     }
-  },
+  }
+},
 }
 </script>
 
@@ -579,6 +601,34 @@ input:focus {
   font-size: 0.9rem;
   color: #dc2626;
   margin-top: 0.2rem;
+}
+
+/* Fix Google Places Autocomplete dropdown visibility in modals/overflow containers */
+.pac-container {
+  z-index: 9999 !important;
+  border-radius: 0 0 1rem 1rem;
+  border-top: none;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+}
+
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pac-item:hover {
+  background-color: #f1f5f9;
+}
+
+.pac-item-query {
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.pac-icon {
+  margin-right: 10px;
 }
 
 .checkbox-group {

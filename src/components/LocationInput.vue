@@ -1,6 +1,6 @@
 <!-- LocationInput.vue -->
 <template>
-  <div class="location-input-wrapper" :class="{ 'has-error': hasError }">
+  <div class="location-input-wrapper">
     <label v-if="label">
       {{ label }}
       <span v-if="required" class="required">*</span>
@@ -46,7 +46,7 @@
 export default {
   name: 'LocationInput',
   props: {
-    modelValue: {
+    value: {
       type: String,
       default: ''
     },
@@ -85,7 +85,7 @@ export default {
       apiLoadAttempts: 0,
       isFetching: false,
       placesService: null,
-      internalValue: this.modelValue
+      internalValue: this.value
     }
   },
   computed: {
@@ -102,7 +102,7 @@ export default {
     }
   },
   watch: {
-    modelValue(newVal) {
+    value(newVal) {
       // Sync external changes to internal value
       if (this.internalValue !== newVal) {
         this.internalValue = newVal
@@ -256,7 +256,7 @@ export default {
         this.internalValue = address
 
         // Emit address update
-        this.$emit('update:modelValue', address)
+        this.$emit('input', address)
 
         // Emit full place data
         this.$emit('place-selected', {
@@ -295,7 +295,7 @@ export default {
       const query = event.target.value
 
       this.internalValue = query
-      this.$emit('update:modelValue', query)
+      this.$emit('input', query)
 
       if (this.debounceTimer) {
         clearTimeout(this.debounceTimer)
@@ -399,14 +399,10 @@ export default {
   cursor: not-allowed;
 }
 
-.has-error .location-input {
-  border-color: #dc2626;
-}
-
 .error-msg {
   font-size: 0.9rem;
+  font-weight: 500;
   color: #dc2626;
-  margin-top: 0.2rem;
 }
 
 .loading-indicator {

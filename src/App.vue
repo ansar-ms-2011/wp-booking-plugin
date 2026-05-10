@@ -14,7 +14,7 @@ export default {
   },
   data() {
     return {
-      pluginTitle: 'My Elementor Vue Plugin'
+      pluginTitle: 'My Vue Plugin'
     }
   },
   created() {

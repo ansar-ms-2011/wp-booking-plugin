@@ -35,33 +35,9 @@ function mevp_init_plugin() {
     new MEVP_API_Handler();
 }
 
-// Activation/Deactivation hooks
-register_activation_hook(__FILE__, 'mevp_activate_plugin');
-register_deactivation_hook(__FILE__, 'mevp_deactivate_plugin');
-
-function mevp_activate_plugin() {
-    require_once MEVP_PLUGIN_DIR . 'includes/class-db-handler.php';
-    MEVP_DB_Handler::create_tables();
-    flush_rewrite_rules();
-}
 
 function mevp_deactivate_plugin() {
     flush_rewrite_rules();
-}
-
-// Add admin menu
-add_action('admin_menu', 'mevp_add_admin_menu');
-
-function mevp_add_admin_menu() {
-    add_menu_page(
-        __('My Vue Plugin', 'my-elementor-vue'),
-        __('Vue Plugin', 'my-elementor-vue'),
-        'manage_options',
-        'my-elementor-vue',
-        'mevp_render_admin_page',
-        'dashicons-admin-generic',
-        30
-    );
 }
 
 function mevp_render_admin_page() {
@@ -76,3 +52,49 @@ function mevp_frontend_shortcode() {
     include MEVP_PLUGIN_DIR . 'admin/views/main-app.php';
     return ob_get_clean();
 }
+
+// Load settings and helpers
+require_once plugin_dir_path(__FILE__) . 'admin/settings.php';
+require_once plugin_dir_path(__FILE__) . 'includes/helpers.php';
+
+// Enqueue scripts and pass settings to your React app
+add_action('admin_enqueue_scripts', 'mevp_admin_enqueue_scripts');
+function mevp_admin_enqueue_scripts($hook) {
+    // Only load on your plugin page
+    if ($hook !== 'toplevel_page_mevp-admin' && $hook !== 'mevp_page_mevp-settings') {
+        return;
+    }
+
+    // Pass settings to JavaScript
+    wp_localize_script('mevp-app', 'mevpSettings', [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('mevp_nonce'),
+        'googleMapsApiKey' => mevp_get_google_maps_api_key(),
+        'apiBaseUrl' => mevp_get_api_base_url(),
+    ]);
+}
+
+function mevp_get_encryption_key() {
+    // Try to get existing key
+    $encryption_key = get_option('mevp_encryption_key');
+
+    if (empty($encryption_key)) {
+        // Generate a new secure key
+        $encryption_key = base64_encode(openssl_random_pseudo_bytes(32));
+        add_option('mevp_encryption_key', $encryption_key, '', 'no');
+    }
+
+    return $encryption_key;
+}
+
+// Activation/Deactivation hooks
+register_activation_hook(__FILE__, 'mevp_activate_plugin');
+register_deactivation_hook(__FILE__, 'mevp_deactivate_plugin');
+
+function mevp_activate_plugin() {
+    require_once MEVP_PLUGIN_DIR . 'includes/class-db-handler.php';
+    MEVP_DB_Handler::create_tables();
+    flush_rewrite_rules();
+    mevp_get_encryption_key();
+}
+

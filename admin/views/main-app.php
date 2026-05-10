@@ -1,3 +1,16 @@
+<?php
+$google_maps_api_key = mevp_get_google_maps_api_key();
+
+// Localize script to pass data to Vue
+wp_localize_script('mevp-app-script', 'mevpData', [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('mevp_nonce'),
+        'googleMapsApiKey' => $google_maps_api_key,
+        'apiBaseUrl' => mevp_get_api_base_url(),
+        'apiKey' => mevp_get_api_key(),
+]);
+
+?>
 <div class="wrap mevp-admin-wrap">
     <div id="mevp-app">
         <div class="mevp-loading">

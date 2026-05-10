@@ -25,8 +25,9 @@
       <div class="form-container">
         <!-- STEP 1: Car Selection (6 cars) -->
         <div class="step-pane" :class="{'active-pane': currentStep === 1}">
-          <h3 style="margin-bottom: 0.25rem;">Choose your ride</h3>
-          <p style="margin-bottom: 1rem; color: #475569;">Select a vehicle that fits your journey</p>
+          <h3 class="step-heading">Choose your ride</h3>
+          <p class="step-description">Select a vehicle that fits your journey</p>
+          <hr>
           <div class="car-grid">
             <div v-for="car in carOptions" :key="car.id" class="car-card"
                  :class="{'selected': formData.selectedCar === car.id}" @click="selectCar(car.id)">
@@ -45,8 +46,9 @@
 
         <!-- STEP 2: Personal Details -->
         <div class="step-pane" :class="{'active-pane': currentStep === 2}">
-          <h3 style="margin-bottom: 0.25rem;">Who's driving?</h3>
-          <p style="margin-bottom: 1rem; color: #475569;">Please provide your contact details</p>
+          <h3 class="step-heading">Who's travelling?</h3>
+          <p class="step-description">Please provide your contact details</p>
+          <hr>
           <div class="form-row">
             <div class="form-group">
               <label>First Name <span class="required">*</span></label>
@@ -88,9 +90,9 @@
 
         <!-- STEP 3: Pickup/Dropoff + Roundtrip + Date/Time -->
         <div class="step-pane" :class="{'active-pane': currentStep === 3}">
-          <h3 style="margin-bottom: 0.25rem;">Journey Details</h3>
-          <p style="margin-bottom: 1rem; color: #475569;">Set pickup, dropoff & travel preferences</p>
-
+          <h3 class="step-heading">Journey Details</h3>
+          <p class="step-description">Set pickup, dropoff & travel preferences</p>
+          <hr>
           <!-- Pickup Location -->
           <div class="form-row">
             <div class="form-group full-width">
@@ -161,7 +163,7 @@
           </div>
           <div class="button-group">
             <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
-            <button class="btn btn-primary btn-success" @click="submitBooking"> Complete Booking <i
+            <button class="btn btn-primary btn-success" @click="submitBooking"> Submit <i
                 class="fas fa-check-circle"></i></button>
           </div>
         </div>
@@ -183,6 +185,7 @@ export default {
     return {
       currentStep: 1,
       mapsApiLoaded: false,
+      settings: null,
       formData: {
         selectedCar: null,
         firstName: '',
@@ -222,12 +225,27 @@ export default {
   async mounted() {
     await this.loadSettings()
     await this.loadGoogleMapsAPI()
+    await this.loadCars()
   },
   methods: {
+    // Original loadSettings method preserved
+    async loadSettings() {
+      try {
+        const response = await this.$api.get('/settings');
+
+        if (response.data.success) {
+          this.settings = response.data.data;
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    },
+
     async loadGoogleMapsAPI() {
       try {
-        // You can move this API key to environment variables
-        const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs'
+        // const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs'
+        const apiKey = this.settings?.googleMapsApiKey;
+        console.log('Google Maps API Key:', apiKey);
         await googleMapsLoader.load(apiKey)
         this.mapsApiLoaded = true
         console.log('Google Maps API loaded successfully')
@@ -237,26 +255,26 @@ export default {
       }
     },
 
-    // Original loadSettings method preserved
-    async loadSettings() {
+    async loadCars() {
       try {
-        const response = await this.$api.get('/settings');
-        if (response.data.success) {
-          this.settings = response.data.data;
-        }
-      } catch (error) {
-        this.$message.error('Failed to load settings');
-      }
-    },
+        const response = await this.$api.get('/get-cars');
 
-    async saveSettings() {
-      try {
-        const response = await this.$api.post('/settings', this.settings);
+        console.log('Cars fetched:', response.data);
         if (response.data.success) {
-          this.$message.success('Settings saved successfully');
+          this.carOptions = [];
+          response.data.data?.forEach(car => {
+            this.carOptions.push({
+              id: car.id,
+              name: car.name,
+              desc: `Luggage: ${car.max_luggage} | Seats: ${car.max_passengers}`,
+              icon: 'fas fa-car'
+            })
+          })
+        } else {
+          console.error('Failed to load cars:', response.data.message);
         }
       } catch (error) {
-        this.$message.error('Failed to save settings');
+        console.error('Failed to load settings:', error);
       }
     },
 
@@ -275,27 +293,38 @@ export default {
     validateField(field) {
       let error = '';
       if (field === 'firstName') {
-        if (!this.formData.firstName.trim()) error = 'First name is required';
-        else if (this.formData.firstName.trim().length < 2) error = 'At least 2 characters';
+        if (!this.formData.firstName.trim())
+          error = 'First name is required';
+        else if (this.formData.firstName.trim().length < 2)
+          error = 'At least 2 characters';
       } else if (field === 'lastName') {
-        if (!this.formData.lastName.trim()) error = 'Last name is required';
+        if (!this.formData.lastName.trim())
+          error = 'Last name is required';
       } else if (field === 'primaryPhone') {
         const phone = this.formData.primaryPhone.trim();
-        if (!phone) error = 'Primary phone is required';
-        else if (!/^[\+\d\s\-\(\)]{7,20}$/.test(phone)) error = 'Enter a valid phone number';
+        if (!phone)
+          error = 'Primary phone is required';
+        else if (!/^[\+\d\s\-\(\)]{7,20}$/.test(phone))
+          error = 'Enter a valid phone number';
       } else if (field === 'email') {
         const email = this.formData.email.trim();
-        if (!email) error = 'Email is required';
-        else if (!/^\S+@\S+\.\S+$/.test(email)) error = 'Enter a valid email address';
+        if (!email)
+          error = 'Email is required';
+        else if (!/^\S+@\S+\.\S+$/.test(email))
+          error = 'Enter a valid email address';
       } else if (field === 'pickupLocation') {
-        if (!this.formData.pickupLocation.trim()) error = 'Pickup location is required';
+        if (!this.formData.pickupLocation.trim())
+          error = 'Pickup location is required';
       } else if (field === 'dropoffLocation') {
-        if (!this.formData.dropoffLocation.trim()) error = 'Dropoff location is required';
+        if (!this.formData.dropoffLocation.trim())
+          error = 'Dropoff location is required';
       } else if (field === 'pickupDateTime') {
-        if (!this.formData.pickupDateTime) error = 'Pickup date & time is required';
+        if (!this.formData.pickupDateTime)
+          error = 'Pickup date & time is required';
         else {
           const selectedDate = new Date(this.formData.pickupDateTime);
-          if (selectedDate < new Date()) error = 'Pickup time must be in the future';
+          if (selectedDate < new Date())
+            error = 'Pickup time must be in the future';
         }
       } else if (field === 'returnPickupLocation') {
         if (this.formData.isRoundtrip && !this.formData.returnPickupLocation.trim()) {
@@ -327,6 +356,7 @@ export default {
 
     // Validate step 3 (locations + datetime + return if roundtrip)
     validateStep3() {
+      console.log('Validating step 3:', this.formData);
       let isValid = true;
       if (!this.validateField('pickupLocation')) isValid = false;
       if (!this.validateField('dropoffLocation')) isValid = false;
@@ -355,7 +385,7 @@ export default {
     // Submit final booking with frontend validation
     submitBooking() {
       if (!this.validateStep3()) {
-        this.$message.error('Please fix errors in the location & time section');
+        console.error('Please fix errors in the location & time section');
         return;
       }
       // Prepare final booking payload
@@ -378,7 +408,11 @@ export default {
         }
       };
       console.log('Booking submitted:', bookingPayload);
-      this.$message.success('Booking confirmed! Check console for details.');
+    }
+  },
+  watch: {
+    'formData.returnPickupLocation'(newVal) {
+      console.log('Parent received update:', newVal)
     }
   }
 }
@@ -450,7 +484,7 @@ export default {
 }
 
 .form-container {
-  padding: 2rem;
+  padding: 1rem 2rem 2rem 2rem;
 }
 
 .step-pane {
@@ -477,7 +511,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 1.2rem;
-  margin: 1.8rem 0 1.2rem;
+  margin: 0.5rem 0 1.2rem;
 }
 
 .car-card {
@@ -564,8 +598,8 @@ input:focus {
 
 .error-msg {
   font-size: 0.9rem;
+  font-weight: 500;
   color: #dc2626;
-  margin-top: 0.2rem;
 }
 
 .checkbox-group {
@@ -688,5 +722,15 @@ input:focus {
   box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   margin: 0 auto;
+}
+.step-heading{
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+.step-description{
+  color: #475569;
+  font-size: 12px;
+  margin-top: 2px;
+  margin-bottom: 0;
 }
 </style>

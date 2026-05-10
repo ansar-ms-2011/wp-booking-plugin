@@ -26,6 +26,7 @@ export default new Vuex.Store({
             commit('SET_LOADING', true);
             try {
                 const response = await api.get('/settings');
+                console.log('API Response:', response);
                 commit('SET_SETTINGS', response.data.data);
             } finally {
                 commit('SET_LOADING', false);

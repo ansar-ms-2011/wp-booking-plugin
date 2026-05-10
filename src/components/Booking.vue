@@ -6,7 +6,7 @@
       <p>Loading booking system...</p>
       <div v-if="carLoadingError">
         <p class="error-msg">We got an error while loading list of available cars.</p>
-        <button @click="loadCars">Load Cars</button>
+        <button @click="loadCars" class="btn btn-primary">Load Cars</button>
       </div>
     </div>
 

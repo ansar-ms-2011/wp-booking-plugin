@@ -16,16 +16,20 @@
           @keydown="handleKeydown"
           autocomplete="off"
           class="location-input"
+          :class="{ 'with-loading': isFetching }"
           :disabled="!apiLoaded"
       />
 
-      <!-- Loading indicator -->
-      <div v-if="isFetching" class="loading-indicator">
-        <i class="fas fa-spinner fa-spin"></i>
+      <!-- Loading spinner inside input -->
+      <div v-if="isFetching" class="loading-spinner">
+        <svg class="spinner" viewBox="0 0 24 24" width="16" height="16">
+          <circle class="spinner-circle" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3"/>
+          <path class="spinner-path" fill="none" stroke="currentColor" stroke-width="3" d="M12 2 A10 10 0 0 1 22 12"/>
+        </svg>
       </div>
 
       <!-- Suggestions dropdown -->
-      <ul class="place-suggestions" v-if="suggestions.length && apiLoaded">
+      <ul class="place-suggestions" v-if="suggestions.length && apiLoaded && !isSelectingSuggestion">
         <li
             v-for="(suggestion, idx) in suggestions"
             :key="suggestion.placeId || suggestion.text + idx"
@@ -366,7 +370,6 @@ export default {
 </script>
 
 <style scoped>
-
 .location-input-wrapper {
   display: flex;
   flex-direction: column;
@@ -395,6 +398,7 @@ export default {
 .location-input {
   width: 100%;
   padding: 0.75rem;
+  padding-right: 2.5rem; /* Add space for spinner */
   border-radius: 1rem;
   border: 2px solid #e2e8f0;
   font-family: inherit;
@@ -402,10 +406,16 @@ export default {
   transition: 0.2s;
   box-sizing: border-box;
 }
+
+.location-input.with-loading {
+  padding-right: 2.5rem;
+}
+
 .input-wrapper,
 .place-suggestions {
   box-sizing: border-box;
 }
+
 .location-input:focus {
   outline: none;
   border-color: #1e4f8a;
@@ -417,25 +427,41 @@ export default {
   cursor: not-allowed;
 }
 
-.error-msg {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #dc2626;
-}
-
-.loading-indicator {
+/* Loading spinner inside input */
+.loading-spinner {
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.8rem;
-  color: #64748b;
-  background: white;
-  padding-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
-.loading-indicator i {
-  margin-right: 4px;
+.spinner {
+  animation: spin 1s linear infinite;
+  color: #64748b;
+}
+
+.spinner-circle {
+  opacity: 0.25;
+}
+
+.spinner-path {
+  opacity: 0.75;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.error-msg {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #dc2626;
 }
 
 .place-suggestions {

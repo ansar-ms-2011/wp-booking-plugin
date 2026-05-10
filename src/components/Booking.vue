@@ -4,6 +4,10 @@
     <div v-if="!mapsApiLoaded" class="loading-state">
       <i class="fas fa-spinner fa-spin"></i>
       <p>Loading booking system...</p>
+      <div v-if="carLoadingError">
+        <p class="error-msg">We got an error while loading list of available cars.</p>
+        <button @click="loadCars">Load Cars</button>
+      </div>
     </div>
 
     <!-- Main widget -->
@@ -207,6 +211,7 @@ export default {
         vehicleTypeId: null,
       },
       carOptions: [],
+      carLoadingError: false,
       stepErrors: {
         car: false
       },
@@ -255,8 +260,8 @@ export default {
 
     async loadCars() {
       try {
+        this.carLoadingError = false;
         const response = await this.$api.get('/get-cars');
-
         console.log('Cars fetched:', response.data);
         if (response.data.success) {
           this.carOptions = [];
@@ -270,6 +275,7 @@ export default {
               })
             })
           }catch (e) {
+            this.carLoadingError = true
             console.error('Error parsing cars:', e);
           }
         } else {

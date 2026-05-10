@@ -28,10 +28,11 @@
       <ul class="place-suggestions" v-if="suggestions.length && apiLoaded">
         <li
             v-for="(suggestion, idx) in suggestions"
-            :key="idx"
+            :key="suggestion.placeId || suggestion.text + idx"
             :class="{ 'active': activeSuggestionIndex === idx }"
-            @click="selectSuggestion(suggestion)"
+            @click.stop="selectSuggestion(suggestion)"
             @mouseenter="activeSuggestionIndex = idx"
+            @mousedown.prevent
         >
           <i class="fas fa-map-marker-alt"></i>
           <span>{{ suggestion.text }}</span>
@@ -85,7 +86,8 @@ export default {
       apiLoadAttempts: 0,
       isFetching: false,
       placesService: null,
-      internalValue: this.value
+      internalValue: this.value,
+      isSelectingSuggestion: false
     }
   },
   computed: {
@@ -211,8 +213,12 @@ export default {
     },
 
     async selectSuggestion(suggestion) {
+      // Set flag to prevent blur from clearing suggestions immediately
+      this.isSelectingSuggestion = true
+
       if (!this.apiLoaded) {
         console.warn('Places API not loaded yet')
+        this.isSelectingSuggestion = false
         return
       }
 
@@ -250,6 +256,7 @@ export default {
             longitude = place.location.lng()
           }
         }
+
         console.log('Selected place:', suggestion.text, 'Place ID:', suggestion.placeId, 'Address:', address, 'Latitude:', latitude, 'Longitude:', longitude)
 
         // Update reactive value
@@ -288,6 +295,11 @@ export default {
         }, this.fieldKey)
 
         this.suggestions = []
+      } finally {
+        // Reset flag after a short delay
+        setTimeout(() => {
+          this.isSelectingSuggestion = false
+        }, 300)
       }
     },
 
@@ -307,11 +319,17 @@ export default {
     },
 
     handleBlur() {
-      // Delay clearing suggestions to allow click events
-      setTimeout(() => {
-        this.suggestions = []
-        this.activeSuggestionIndex = -1
-      }, 200)
+      // Only clear suggestions if we're not in the middle of selecting one
+      if (!this.isSelectingSuggestion) {
+        // Delay clearing suggestions to allow click events
+        setTimeout(() => {
+          if (!this.isSelectingSuggestion) {
+            this.suggestions = []
+            this.activeSuggestionIndex = -1
+          }
+        }, 200)
+      }
+
       this.$emit('blur', this.fieldKey)
     },
 

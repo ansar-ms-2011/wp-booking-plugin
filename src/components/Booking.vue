@@ -114,11 +114,11 @@
           <div class="form-row">
             <div class="form-group full-width">
               <LocationInput
-                  v-model="formData.dropoffLocation"
+                  v-model="formData.dropOffLocation"
                   label="Dropoff Location"
                   placeholder="Enter dropoff address"
                   :required="true"
-                  :error-message="fieldErrors.dropoffLocation"
+                  :error-message="fieldErrors.dropOffLocation"
                   input-ref="dropoffInput"
                   field-key="dropoff"
                   @validate="validateField"
@@ -134,13 +134,13 @@
               <div class="error-msg" v-if="fieldErrors.pickupDateTime">{{ fieldErrors.pickupDateTime }}</div>
             </div>
             <div class="form-group checkbox-group" style="justify-content: flex-start; margin-top: 1.5rem;">
-              <input type="checkbox" id="roundtrip" v-model="formData.isRoundtrip">
+              <input type="checkbox" id="roundtrip" v-model="formData.isRoundTrip">
               <label for="roundtrip" style="text-transform: none; font-weight: 500;">Round trip (return journey)</label>
             </div>
           </div>
 
           <!-- Return location - conditional rendering when roundtrip checked -->
-          <div class="return-location" v-if="formData.isRoundtrip">
+          <div class="return-location" v-if="formData.isRoundTrip">
             <div class="form-group full-width">
               <LocationInput
                   v-model="formData.returnPickupLocation"
@@ -194,32 +194,32 @@ export default {
         secondaryPhone: '',
         email: '',
         pickupLocation: '',
-        dropoffLocation: '',
+        pickupLocationLat: '',
+        pickupLocationLng: '',
+        dropOffLocation: '',
+        dropOffLocationLat: '',
+        dropOffLocationLng: '',
         pickupDateTime: '',
-        isRoundtrip: false,
-        returnPickupLocation: ''
+        isRoundTrip: false,
+        returnPickupLocation: '',
+        returnPickupLocationLat: '',
+        returnPickupLocationLng: '',
+        vehicleTypeId: null,
       },
-      carOptions: [
-        {id: 'sedan', name: 'Sedan', desc: 'Comfort 5 seats', icon: 'fas fa-car-side'},
-        {id: 'mini_sedan', name: 'Mini Sedan', desc: 'Economy 4 seats', icon: 'fas fa-car'},
-        {id: 'suv', name: 'SUV', desc: 'Spacious 7 seats', icon: 'fas fa-truck'},
-        {id: 'luxury_sedan', name: 'Luxury Sedan', desc: 'Premium class', icon: 'fas fa-car'},
-        {id: 'hatchback', name: 'Hatchback', desc: 'Compact & agile', icon: 'fas fa-caravan'},
-        {id: 'ev', name: 'Electric SUV', desc: 'Zero emission', icon: 'fas fa-charging-station'}
-      ],
+      carOptions: [],
+      stepErrors: {
+        car: false
+      },
       fieldErrors: {
         firstName: '',
         lastName: '',
         primaryPhone: '',
         email: '',
         pickupLocation: '',
-        dropoffLocation: '',
+        dropOffLocation: '',
         pickupDateTime: '',
         returnPickupLocation: ''
       },
-      stepErrors: {
-        car: false
-      }
     }
   },
   async mounted() {
@@ -243,7 +243,6 @@ export default {
 
     async loadGoogleMapsAPI() {
       try {
-        // const apiKey = 'AIzaSyBWk6v169JWz27vhH5inP3qvL_THc3RXGs'
         const apiKey = this.settings?.googleMapsApiKey;
         console.log('Google Maps API Key:', apiKey);
         await googleMapsLoader.load(apiKey)
@@ -251,7 +250,6 @@ export default {
         console.log('Google Maps API loaded successfully')
       } catch (error) {
         console.error('Failed to load Google Maps API:', error)
-        this.$message.error('Failed to load maps service. Please refresh the page.')
       }
     },
 
@@ -262,14 +260,18 @@ export default {
         console.log('Cars fetched:', response.data);
         if (response.data.success) {
           this.carOptions = [];
-          response.data.data?.forEach(car => {
-            this.carOptions.push({
-              id: car.id,
-              name: car.name,
-              desc: `Luggage: ${car.max_luggage} | Seats: ${car.max_passengers}`,
-              icon: 'fas fa-car'
+          try {
+            response.data.data?.forEach(car => {
+              this.carOptions.push({
+                id: car.id,
+                name: car.name,
+                desc: `Luggage: ${car.max_luggage} | Seats: ${car.max_passengers}`,
+                icon: 'fas fa-car'
+              })
             })
-          })
+          }catch (e) {
+            console.error('Error parsing cars:', e);
+          }
         } else {
           console.error('Failed to load cars:', response.data.message);
         }
@@ -315,8 +317,8 @@ export default {
       } else if (field === 'pickupLocation') {
         if (!this.formData.pickupLocation.trim())
           error = 'Pickup location is required';
-      } else if (field === 'dropoffLocation') {
-        if (!this.formData.dropoffLocation.trim())
+      } else if (field === 'dropOffLocation') {
+        if (!this.formData.dropOffLocation.trim())
           error = 'Dropoff location is required';
       } else if (field === 'pickupDateTime') {
         if (!this.formData.pickupDateTime)
@@ -327,7 +329,7 @@ export default {
             error = 'Pickup time must be in the future';
         }
       } else if (field === 'returnPickupLocation') {
-        if (this.formData.isRoundtrip && !this.formData.returnPickupLocation.trim()) {
+        if (this.formData.isRoundTrip && !this.formData.returnPickupLocation.trim()) {
           error = 'Return pickup location is required for round trip';
         }
       }
@@ -359,9 +361,9 @@ export default {
       console.log('Validating step 3:', this.formData);
       let isValid = true;
       if (!this.validateField('pickupLocation')) isValid = false;
-      if (!this.validateField('dropoffLocation')) isValid = false;
+      if (!this.validateField('dropOffLocation')) isValid = false;
       if (!this.validateField('pickupDateTime')) isValid = false;
-      if (this.formData.isRoundtrip) {
+      if (this.formData.isRoundTrip) {
         if (!this.validateField('returnPickupLocation')) isValid = false;
       }
       return isValid;
@@ -401,10 +403,10 @@ export default {
         },
         trip: {
           pickupLocation: this.formData.pickupLocation,
-          dropoffLocation: this.formData.dropoffLocation,
+          dropOffLocation: this.formData.dropOffLocation,
           pickupDateTime: this.formData.pickupDateTime,
-          isRoundtrip: this.formData.isRoundtrip,
-          returnPickupLocation: this.formData.isRoundtrip ? this.formData.returnPickupLocation : null
+          isRoundTrip: this.formData.isRoundTrip,
+          returnPickupLocation: this.formData.isRoundTrip ? this.formData.returnPickupLocation : null
         }
       };
       console.log('Booking submitted:', bookingPayload);

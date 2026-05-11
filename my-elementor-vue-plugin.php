@@ -98,3 +98,10 @@ function mevp_activate_plugin() {
     mevp_get_encryption_key();
 }
 
+// Include AJAX actions for fetching car types and other data
+require_once MEVP_PLUGIN_DIR . 'includes/ajax-car-types.php';
+
+// Include AJAX actions for fetching service types
+require_once MEVP_PLUGIN_DIR . 'includes/ajax-service-types.php';
+
+

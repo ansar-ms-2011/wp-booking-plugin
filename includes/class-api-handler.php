@@ -63,6 +63,7 @@ class MEVP_API_Handler {
     }
 
     public function get_cars_data($request) {
+        global $wpdb;
 
         // Get settings
         $settings = get_option('mevp_settings', array(
@@ -71,125 +72,68 @@ class MEVP_API_Handler {
             'max_items' => 100
         ));
 
-        // Get API credentials
-        $api_base_url = mevp_get_api_base_url();
-        $api_key = mevp_get_api_key();
+        $table_name = $wpdb->prefix . 'mevp_data';
 
-        // Validate API configuration
-        if (empty($api_base_url) || empty($api_key)) {
+        // Get car data from database
+        $record = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $table_name WHERE title = %s",
+                'cars_data'
+            )
+        );
+
+        // Check if data exists
+        if (!$record || empty($record->content)) {
             return rest_ensure_response(array(
                 'success' => false,
-                'message' => 'API configuration is missing. Please configure API Base URL and API Key in plugin settings.',
-                'data' => null
+                'message' => 'No cars data found in database. Please fetch cars data from API first via settings page.',
+                'data' => null,
+                'status' => 'not_found'
             ));
         }
 
-        // Create cache key
-        $cache_key = 'mevp_cars_data_' . md5($api_base_url);
-        $cached_data = get_transient($cache_key);
+        // Decode JSON content
+        $cars_data = json_decode($record->content, true);
 
-        // Return cached data if available
-        if ($cached_data !== false) {
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'message' => 'Invalid JSON data in database: ' . json_last_error_msg(),
+                'data' => null,
+                'status' => 'invalid_data'
+            ));
+        }
+
+        // Create cache key for the response
+        $cache_key = 'mevp_cars_data_response';
+        $cached_response = get_transient($cache_key);
+
+        // Return cached response if available
+        if ($cached_response !== false) {
             return rest_ensure_response(array(
                 'success' => true,
                 'cached' => true,
-                'data' => $cached_data
+                'from_database' => false,
+                'last_updated' => $record->updated_at ?? $record->created_at,
+                'total_cars' => is_array($cars_data) ? count($cars_data) : 0,
+                'data' => $cars_data
             ));
-        }
+        }else{
+            // Cache the response
+            $cache_duration = isset($settings['cache_duration']) ? $settings['cache_duration'] : 3600;
+            set_transient($cache_key, $cars_data, $cache_duration);
 
-        // Call external API with parameters
-        $external_api_response = $this->call_external_cars_api(
-            $api_base_url,
-            $api_key,
-        );
-
-        if (is_wp_error($external_api_response)) {
             return rest_ensure_response(array(
-                'success' => false,
-                'message' => $external_api_response->get_error_message(),
-                'error_code' => $external_api_response->get_error_code(),
-                'data' => null
+                'success' => true,
+                'cached' => false,
+                'from_database' => true,
+                'cache_duration' => $cache_duration,
+                'last_updated' => $record->updated_at ?? $record->created_at,
+                'status' => $record->status,
+                'total_cars' => is_array($cars_data) ? count($cars_data) : 0,
+                'data' => $cars_data
             ));
         }
-
-        // Cache the response
-        $cache_duration = isset($settings['cache_duration']) ? $settings['cache_duration'] : 3600;
-        set_transient($cache_key, $external_api_response, $cache_duration);
-
-        return rest_ensure_response(array(
-            'success' => true,
-            'cached' => false,
-            'cache_duration' => $cache_duration,
-            'data' => array(
-                'cars' => $external_api_response,
-            )
-        ));
-    }
-
-    /**
-     * Call external cars API with pagination
-     */
-    private function call_external_cars_api($api_base_url, $api_key) {
-        $endpoint = '/api/get-vehicle-types';
-
-        // Build URL with query parameters
-        $url = add_query_arg(array(
-            'status' => 'available'
-        ), trailingslashit($api_base_url) . ltrim($endpoint, '/'));
-
-        // Prepare request headers
-        $headers = array(
-            'Authorization' => 'Bearer ' . $api_key,
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-            'User-Agent' => 'WordPress/MEVP-Plugin/1.0'
-        );
-
-        $args = array(
-            'method' => 'GET',
-            'timeout' => 30,
-            'headers' => $headers,
-            'sslverify' => false, // Set to false only for development
-        );
-
-        // Make the request
-        $response = wp_remote_request($url, $args);
-
-        // Log request for debugging (remove in production)
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('MEVP API Request URL: ' . $url);
-            error_log('MEVP API Response Code: ' . wp_remote_retrieve_response_code($response));
-        }
-
-        // Handle WP errors
-        if (is_wp_error($response)) {
-            error_log('MEVP API Error: ' . $response->get_error_message());
-            return $response;
-        }
-
-        // Check status code
-        $status_code = wp_remote_retrieve_response_code($response);
-        if ($status_code !== 200 && $status_code !== 201) {
-            $body = wp_remote_retrieve_body($response);
-            return new WP_Error(
-                'api_error',
-                sprintf('API returned %d: %s', $status_code, substr($body, 0, 200)),
-                array('status' => $status_code)
-            );
-        }
-
-        // Parse response
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return new WP_Error(
-                'json_error',
-                'Invalid JSON response: ' . json_last_error_msg()
-            );
-        }
-
-        return $data;
     }
     
     public function handle_ajax_request() {

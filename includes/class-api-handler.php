@@ -1,7 +1,11 @@
 <?php
 class MEVP_API_Handler {
-    
+    private $car_handler;
+    private $booking_handler;
     public function __construct() {
+        $this->car_handler = new MEVP_Car_Handler();
+        $this->booking_handler = new MEVP_Booking_Handler();
+
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         add_action('wp_ajax_mevp_ajax_action', array($this, 'handle_ajax_request'));
         add_action('wp_ajax_nopriv_mevp_ajax_action', array($this, 'handle_ajax_request'));
@@ -37,11 +41,22 @@ class MEVP_API_Handler {
             'callback' => array($this, 'get_cars_data'),
             'permission_callback' => array($this, 'check_permission')
         ));
+
+        register_rest_route('mevp/v1', '/save-booking', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'save_booking_data'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+    }
+
+    public function save_booking_data($request)
+    {
+        return $this->booking_handler->save_booking_data($request);
     }
     
     public function check_permission() {
-//        return current_user_can('manage_options');
-        return true;
+        //  return current_user_can('manage_options');
+        return current_user_can('read') || true;
     }
     
     public function get_settings() {

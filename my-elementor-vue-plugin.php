@@ -21,6 +21,11 @@ define('MEVP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MEVP_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('MEVP_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
+require_once MEVP_PLUGIN_DIR . 'includes/ajax-car-types.php';
+require_once MEVP_PLUGIN_DIR . 'includes/ajax-service-types.php';
+require_once MEVP_PLUGIN_DIR . 'includes/class-booking-handler.php';
+require_once MEVP_PLUGIN_DIR . 'includes/class-car-handler.php';
+
 // Initialize plugin
 add_action('plugins_loaded', 'mevp_init_plugin');
 
@@ -98,10 +103,7 @@ function mevp_activate_plugin() {
     mevp_get_encryption_key();
 }
 
-// Include AJAX actions for fetching car types and other data
-require_once MEVP_PLUGIN_DIR . 'includes/ajax-car-types.php';
 
-// Include AJAX actions for fetching service types
-require_once MEVP_PLUGIN_DIR . 'includes/ajax-service-types.php';
+
 
 

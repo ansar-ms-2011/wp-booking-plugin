@@ -54,15 +54,10 @@
           <p class="step-description">Please provide your contact details</p>
           <hr>
           <div class="form-row">
-            <div class="form-group">
+            <div class="form-group full-width">
               <label>First Name <span class="required">*</span></label>
-              <input type="text" v-model="formData.firstName" placeholder="John" @blur="validateField('firstName')">
-              <div class="error-msg" v-if="fieldErrors.firstName">{{ fieldErrors.firstName }}</div>
-            </div>
-            <div class="form-group">
-              <label>Last Name <span class="required">*</span></label>
-              <input type="text" v-model="formData.lastName" placeholder="Doe" @blur="validateField('lastName')">
-              <div class="error-msg" v-if="fieldErrors.lastName">{{ fieldErrors.lastName }}</div>
+              <input type="text" v-model="formData.fullName" placeholder="John Doe" @blur="validateField('fullName')">
+              <div class="error-msg" v-if="fieldErrors.fullName">{{ fieldErrors.fullName }}</div>
             </div>
           </div>
           <div class="form-row">
@@ -85,6 +80,21 @@
               <div class="error-msg" v-if="fieldErrors.email">{{ fieldErrors.email }}</div>
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Total Passengers <span class="required">*</span></label>
+              <input type="number" v-model="formData.passengers" placeholder="Enter number of passengers"
+                     @blur="validateField('passengers')">
+              <div class="error-msg" v-if="fieldErrors.passengers">{{ fieldErrors.passengers }}</div>
+            </div>
+            <div class="form-group">
+              <label>Luggage Pieces<span class="required">*</span></label>
+              <input type="number" v-model="formData.luggage" placeholder="Enter number of luggage pieces"
+                     @blur="validateField('luggage')">
+              <div class="error-msg" v-if="fieldErrors.luggage">{{ fieldErrors.luggage }}</div>
+            </div>
+          </div>
+
           <div class="button-group">
             <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
             <button class="btn btn-primary" @click="nextStep(2)">Next: Location & Time <i
@@ -92,10 +102,10 @@
           </div>
         </div>
 
-        <!-- STEP 3: Pickup/Dropoff + Roundtrip + Date/Time -->
+        <!-- STEP 3: Pickup/Drop off + RoundTrip + Date/Time -->
         <div class="step-pane" :class="{'active-pane': currentStep === 3}">
           <h3 class="step-heading">Journey Details</h3>
-          <p class="step-description">Set pickup, dropoff & travel preferences</p>
+          <p class="step-description">Set pickup, drop off & travel preferences</p>
           <hr>
           <!-- Pickup Location -->
           <div class="form-row">
@@ -110,29 +120,31 @@
                   field-key="pickup"
                   @validate="validateField"
                   @blur="validateField"
+                  @placeSelected="handlePuSelected"
               />
             </div>
           </div>
 
-          <!-- Dropoff Location -->
+          <!-- Drop off Location -->
           <div class="form-row">
             <div class="form-group full-width">
               <LocationInput
                   v-model="formData.dropOffLocation"
-                  label="Dropoff Location"
-                  placeholder="Enter dropoff address"
+                  label="Drop off Location"
+                  placeholder="Enter drop off address"
                   :required="true"
                   :error-message="fieldErrors.dropOffLocation"
                   input-ref="dropoffInput"
                   field-key="dropoff"
                   @validate="validateField"
                   @blur="validateField"
+                  @placeSelected="handleDropOffSelected"
               />
             </div>
           </div>
 
           <div class="form-row">
-            <div class="form-group">
+            <div class="form-group datepicker-input">
               <label>Pickup Date & Time <span class="required">*</span></label>
               <input type="datetime-local" v-model="formData.pickupDateTime" @blur="validateField('pickupDateTime')">
               <div class="error-msg" v-if="fieldErrors.pickupDateTime">{{ fieldErrors.pickupDateTime }}</div>
@@ -143,27 +155,17 @@
             </div>
           </div>
 
-          <!-- Return location - conditional rendering when roundtrip checked -->
-          <div class="return-location" v-if="formData.isRoundTrip">
-            <div class="form-group full-width">
-              <LocationInput
-                  v-model="formData.returnPickupLocation"
-                  label="Return Pickup Location"
-                  placeholder="Address for return trip pickup"
-                  :required="true"
-                  :error-message="fieldErrors.returnPickupLocation"
-                  input-ref="returnInput"
-                  field-key="return"
-                  @validate="validateField"
-                  @blur="validateField"
-              />
-              <small style="color: #4b5563;">Usually from drop off point, but you can specify custom</small>
+          <div class="form-row" v-if="formData.isRoundTrip">
+            <div class="form-group datepicker-input">
+              <label>Return Pickup Date & Time <span class="required">*</span></label>
+              <input type="datetime-local" v-model="formData.returnPickupDateTime" @blur="validateField('returnPickupDateTime')">
+              <div class="error-msg" v-if="fieldErrors.returnPickupDateTime">{{ fieldErrors.returnPickupDateTime }}</div>
             </div>
           </div>
 
           <div class="summary-text" v-if="formData.selectedCar">
             <i class="fas fa-car"></i> <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
-            <i class="fas fa-user"></i> {{ formData.firstName || 'Guest' }} {{ formData.lastName || '' }}
+            <i class="fas fa-user"></i> {{ formData.fullName || 'Guest' }}
           </div>
           <div class="button-group">
             <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
@@ -190,13 +192,15 @@ export default {
       currentStep: 1,
       mapsApiLoaded: false,
       settings: null,
+      isSubmitting: false,
       formData: {
         selectedCar: null,
-        firstName: '',
-        lastName: '',
+        fullName: '',
         primaryPhone: '',
         secondaryPhone: '',
         email: '',
+        passengers: '',
+        luggage: '',
         pickupLocation: '',
         pickupLocationLat: '',
         pickupLocationLng: '',
@@ -205,9 +209,7 @@ export default {
         dropOffLocationLng: '',
         pickupDateTime: '',
         isRoundTrip: false,
-        returnPickupLocation: '',
-        returnPickupLocationLat: '',
-        returnPickupLocationLng: '',
+        returnPickupDateTime: '',
         vehicleTypeId: null,
       },
       carOptions: [],
@@ -216,14 +218,15 @@ export default {
         car: false
       },
       fieldErrors: {
-        firstName: '',
-        lastName: '',
+        fullName: '',
         primaryPhone: '',
         email: '',
+        passengers: '',
+        luggage: '',
         pickupLocation: '',
         dropOffLocation: '',
         pickupDateTime: '',
-        returnPickupLocation: ''
+        returnPickupDateTime: ''
       },
     }
   },
@@ -286,6 +289,20 @@ export default {
       }
     },
 
+    handlePuSelected(place) {
+      this.formData.pickupLocation = place.address;
+      this.formData.pickupLocationLat = place.latitude;
+      this.formData.pickupLocationLng = place.longitude;
+      console.log('Pickup location selected:', place);
+    },
+
+    handleDropOffSelected(place) {
+      this.formData.dropOffLocation = place.address;
+      this.formData.dropOffLocationLat = place.latitude;
+      this.formData.dropOffLocationLng = place.longitude;
+      console.log('Drop off location selected:', place);
+    },
+
     // Car selection
     selectCar(carId) {
       this.formData.selectedCar = carId;
@@ -300,14 +317,11 @@ export default {
     // Validation for individual fields
     validateField(field) {
       let error = '';
-      if (field === 'firstName') {
-        if (!this.formData.firstName.trim())
-          error = 'First name is required';
-        else if (this.formData.firstName.trim().length < 2)
+      if (field === 'fullName') {
+        if (!this.formData.fullName.trim())
+          error = 'Full name of the passenger is required';
+        else if (this.formData.fullName.trim().length < 2)
           error = 'At least 2 characters';
-      } else if (field === 'lastName') {
-        if (!this.formData.lastName.trim())
-          error = 'Last name is required';
       } else if (field === 'primaryPhone') {
         const phone = this.formData.primaryPhone.trim();
         if (!phone)
@@ -320,12 +334,18 @@ export default {
           error = 'Email is required';
         else if (!/^\S+@\S+\.\S+$/.test(email))
           error = 'Enter a valid email address';
+      } else if (field === 'passengers'){
+        if (!this.formData.passengers.trim())
+          error = 'Total passengers is required';
+      } else if (field === 'luggage') {
+        if (!this.formData.luggage.trim())
+          error = 'Total luggage Pcs is required';
       } else if (field === 'pickupLocation') {
         if (!this.formData.pickupLocation.trim())
           error = 'Pickup location is required';
       } else if (field === 'dropOffLocation') {
         if (!this.formData.dropOffLocation.trim())
-          error = 'Dropoff location is required';
+          error = 'Drop off location is required';
       } else if (field === 'pickupDateTime') {
         if (!this.formData.pickupDateTime)
           error = 'Pickup date & time is required';
@@ -334,9 +354,18 @@ export default {
           if (selectedDate < new Date())
             error = 'Pickup time must be in the future';
         }
-      } else if (field === 'returnPickupLocation') {
-        if (this.formData.isRoundTrip && !this.formData.returnPickupLocation.trim()) {
-          error = 'Return pickup location is required for round trip';
+      } else if (field === 'returnPickupDateTime') {
+        if (this.formData.isRoundTrip && !this.formData.returnPickupDateTime.trim()) {
+          error = 'Return pickup date & time is required for round trip';
+        }else{
+          if (this.formData.isRoundTrip) {
+            const returnDate = new Date(this.formData.returnPickupDateTime);
+            if (returnDate < new Date()) {
+              error = 'Return pickup time must be in the future';
+            } else if (returnDate <= new Date(this.formData.pickupDateTime)) {
+              error = 'Return pickup time must be after pickup time';
+            }
+          }
         }
       }
       this.fieldErrors[field] = error;
@@ -354,7 +383,7 @@ export default {
 
     // Validate step 2 (personal details)
     validateStep2() {
-      const fields = ['firstName', 'lastName', 'primaryPhone', 'email'];
+      const fields = ['fullName', 'primaryPhone', 'email', 'passengers', 'luggage'];
       let isValid = true;
       fields.forEach(field => {
         if (!this.validateField(field)) isValid = false;
@@ -370,7 +399,7 @@ export default {
       if (!this.validateField('dropOffLocation')) isValid = false;
       if (!this.validateField('pickupDateTime')) isValid = false;
       if (this.formData.isRoundTrip) {
-        if (!this.validateField('returnPickupLocation')) isValid = false;
+        if (!this.validateField('returnPickupDateTime')) isValid = false;
       }
       return isValid;
     },
@@ -398,28 +427,36 @@ export default {
       }
       // Prepare final booking payload
       const bookingPayload = {
-        car: this.formData.selectedCar,
+        carId: this.formData.selectedCar,
         carName: this.getCarName(),
-        customer: {
-          firstName: this.formData.firstName,
-          lastName: this.formData.lastName,
-          primaryPhone: this.formData.primaryPhone,
-          secondaryPhone: this.formData.secondaryPhone,
-          email: this.formData.email
-        },
-        trip: {
-          pickupLocation: this.formData.pickupLocation,
-          dropOffLocation: this.formData.dropOffLocation,
-          pickupDateTime: this.formData.pickupDateTime,
-          isRoundTrip: this.formData.isRoundTrip,
-          returnPickupLocation: this.formData.isRoundTrip ? this.formData.returnPickupLocation : null
-        }
+        fullName: this.formData.fullName,
+        primaryPhone: this.formData.primaryPhone,
+        secondaryPhone: this.formData.secondaryPhone,
+        email: this.formData.email,
+        passengers: this.formData.passengers,
+        luggage: this.formData.luggage,
+        pickupLocation: this.formData.pickupLocation,
+        pickupLocationLat: this.formData.pickupLocationLat,
+        pickupLocationLng: this.formData.pickupLocationLng,
+        dropOffLocation: this.formData.dropOffLocation,
+        dropOffLocationLat: this.formData.dropOffLocationLat,
+        dropOffLocationLng: this.formData.dropOffLocationLng,
+        pickupDateTime: this.formData.pickupDateTime,
+        isRoundTrip: this.formData.isRoundTrip,
+        returnPickupDateTime: this.formData.isRoundTrip ? this.formData.returnPickupDateTime : null
       };
-      console.log('Booking submitted:', bookingPayload);
+      console.log('Booking details:', bookingPayload);
+      this.sendBookingRequest(bookingPayload);
+    },
+    async sendBookingRequest(data) {
+      this.isSubmitting = true;
+      const response = await this.$api.post('/save-booking', data);
+      console.log('Booking request response:', response);
+      this.isSubmitting = false;
     }
   },
   watch: {
-    'formData.returnPickupLocation'(newVal) {
+    'formData.returnPickupDateTime'(newVal) {
       console.log('Parent received update:', newVal)
     }
   }
@@ -740,5 +777,8 @@ input:focus {
   font-size: 12px;
   margin-top: 2px;
   margin-bottom: 0;
+}
+.datepicker-input{
+  max-width: 50% !important;
 }
 </style>

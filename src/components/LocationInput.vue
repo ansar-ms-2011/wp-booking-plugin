@@ -261,8 +261,6 @@ export default {
           }
         }
 
-        console.log('Selected place:', suggestion.text, 'Place ID:', suggestion.placeId, 'Address:', address, 'Latitude:', latitude, 'Longitude:', longitude)
-
         // Update reactive value
         this.internalValue = address
 
@@ -270,7 +268,7 @@ export default {
         this.$emit('input', address)
 
         // Emit full place data
-        this.$emit('place-selected', {
+        this.$emit('placeSelected', {
           address,
           latitude,
           longitude,

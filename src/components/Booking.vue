@@ -12,197 +12,222 @@
 
     <!-- Main widget -->
     <div v-else class="booking-widget">
-      <!-- Steps Header -->
-      <div class="steps-header">
-        <div class="step-tab" :class="{'active': currentStep === 1, 'completed': currentStep > 1}">
-          <span class="step-num">1</span> <span>Select Car</span>
+      <template v-if="!submitSuccessMessage" class="booking-form">
+        <!-- Steps Header -->
+        <div class="steps-header">
+          <div class="step-tab" :class="{'active': currentStep === 1, 'completed': currentStep > 1}">
+            <span class="step-num">1</span> <span>Select Car</span>
+          </div>
+          <div class="step-tab" :class="{'active': currentStep === 2, 'completed': currentStep > 2}">
+            <span class="step-num">2</span> <span>Personal Details</span>
+          </div>
+          <div class="step-tab" :class="{'active': currentStep === 3}">
+            <span class="step-num">3</span> <span>Location & Time</span>
+          </div>
         </div>
-        <div class="step-tab" :class="{'active': currentStep === 2, 'completed': currentStep > 2}">
-          <span class="step-num">2</span> <span>Personal Details</span>
-        </div>
-        <div class="step-tab" :class="{'active': currentStep === 3}">
-          <span class="step-num">3</span> <span>Location & Time</span>
-        </div>
-      </div>
 
-      <!-- Form Content -->
-      <div class="form-container">
-        <!-- STEP 1: Car Selection (6 cars) -->
-        <div class="step-pane" :class="{'active-pane': currentStep === 1}">
-          <h3 class="step-heading">Choose your ride</h3>
-          <p class="step-description">Select a vehicle that fits your journey</p>
-          <hr>
-          <div class="car-grid">
-            <div v-for="car in carOptions" :key="car.id" class="car-card"
-                 :class="{'selected': formData.selectedCar === car.id}"
-                 :style="{ backgroundImage: `url(${car.image_url})` }"
-                 @click="selectCar(car.id)">
+        <!-- Form Content -->
+        <div class="form-container">
+          <!-- STEP 1: Car Selection (6 cars) -->
+          <div class="step-pane" :class="{'active-pane': currentStep === 1}">
+            <h3 class="step-heading">Choose your ride</h3>
+            <p class="step-description">Select a vehicle that fits your journey</p>
+            <hr>
+            <div class="car-grid">
+              <div v-for="car in carOptions" :key="car.id" class="car-card"
+                   :class="{'selected': formData.selectedCar === car.id}"
+                   :style="{ backgroundImage: `url(${car.image_url})` }"
+                   @click="selectCar(car.id)">
 
-              <div class="car-bottom">
-                <div class="car-name">
-                  {{ car.name }}
+                <div class="car-bottom">
+                  <div class="car-name">
+                    {{ car.name }}
+                  </div>
+                  <div class="car-desc">
+                    <i class="fas fa-ellipsis-h"></i> {{ car.desc }}
+                  </div>
                 </div>
-                <div class="car-desc">
-                  <i class="fas fa-ellipsis-h"></i> {{ car.desc }}
+
+                <!-- CENTER GREEN CHECKMARK when this car is selected (exactly center of image) -->
+                <div v-if="formData.selectedCar === car.id" class="selected-badge">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+                    <path d="M20 60 L45 85 L100 25" stroke="#FFF" stroke-width="12" fill="none" stroke-linecap="round"
+                          stroke-linejoin="round"/>
+                  </svg>
                 </div>
               </div>
+            </div>
+            <div class="error-msg" v-if="stepErrors.car && !formData.selectedCar">Please select a car to continue.</div>
+            <div class="button-group-step-1">
+              <div></div>
+              <button class="btn btn-primary btn-step-1" @click="nextStep(1)">Next: Personal Info <i
+                  class="fas fa-arrow-right"></i>
+              </button>
+            </div>
+          </div>
 
-              <!-- CENTER GREEN CHECKMARK when this car is selected (exactly center of image) -->
-              <div v-if="formData.selectedCar === car.id" class="selected-badge">
-                <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-                  <path d="M20 60 L45 85 L100 25" stroke="#FFF" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+          <!-- STEP 2: Personal Details -->
+          <div class="step-pane" :class="{'active-pane': currentStep === 2}">
+            <h3 class="step-heading">Who's travelling?</h3>
+            <p class="step-description">Please provide complete details of the passenger(s).</p>
+            <hr>
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label>First Name <span class="required">*</span></label>
+                <input type="text" v-model="formData.fullName" placeholder="John Doe" @blur="validateField('fullName')">
+                <div class="error-msg" v-if="fieldErrors.fullName">{{ fieldErrors.fullName }}</div>
               </div>
             </div>
-          </div>
-          <div class="error-msg" v-if="stepErrors.car && !formData.selectedCar">Please select a car to continue.</div>
-          <div class="button-group-step-1">
-            <div></div>
-            <button class="btn btn-primary btn-step-1" @click="nextStep(1)">Next: Personal Info <i class="fas fa-arrow-right"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- STEP 2: Personal Details -->
-        <div class="step-pane" :class="{'active-pane': currentStep === 2}">
-          <h3 class="step-heading">Who's travelling?</h3>
-          <p class="step-description">Please provide complete details of the passenger(s).</p>
-          <hr>
-          <div class="form-row">
-            <div class="form-group full-width">
-              <label>First Name <span class="required">*</span></label>
-              <input type="text" v-model="formData.fullName" placeholder="John Doe" @blur="validateField('fullName')">
-              <div class="error-msg" v-if="fieldErrors.fullName">{{ fieldErrors.fullName }}</div>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Primary Phone <span class="required">*</span></label>
-              <input type="tel" v-model="formData.primaryPhone" placeholder="+1 234 567 8900"
-                     @blur="validateField('primaryPhone')">
-              <div class="error-msg" v-if="fieldErrors.primaryPhone">{{ fieldErrors.primaryPhone }}</div>
-            </div>
-            <div class="form-group">
-              <label>Secondary Phone</label>
-              <input type="tel" v-model="formData.secondaryPhone" placeholder="Optional">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group full-width">
-              <label>Email Address <span class="required">*</span></label>
-              <input type="email" v-model="formData.email" placeholder="john.doe@example.com"
-                     @blur="validateField('email')">
-              <div class="error-msg" v-if="fieldErrors.email">{{ fieldErrors.email }}</div>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Total Passengers <span class="required">*</span></label>
-              <input type="number" v-model="formData.passengers" placeholder="Enter number of passengers"
-                     @blur="validateField('passengers')">
-              <div class="error-msg" v-if="fieldErrors.passengers">{{ fieldErrors.passengers }}</div>
-            </div>
-            <div class="form-group">
-              <label>Luggage Pieces<span class="required">*</span></label>
-              <input type="number" v-model="formData.luggage" placeholder="Enter number of luggage pieces"
-                     @blur="validateField('luggage')">
-              <div class="error-msg" v-if="fieldErrors.luggage">{{ fieldErrors.luggage }}</div>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group checkbox-group" style="justify-content: flex-start; margin-top: 1.5rem; align-items: center;">
-              <p style="text-transform: none; cursor: pointer; font-size: 1rem; text-align: justify;" @click="formData.optedIn = !formData.optedIn">
-                <input type="checkbox" id="opted-in" v-model="formData.optedIn">
-                Do you agree to receive travel and service update messages from <b>ride2theairports.com</b>? Message / data rates may apply. You can reply <b>STOP</b> to cancel this consent any time.</p>
-            </div>
-          </div>
-
-          <div class="button-group">
-            <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
-            <button class="btn btn-primary" @click="nextStep(2)">Next: Location & Time <i
-                class="fas fa-arrow-right"></i></button>
-          </div>
-        </div>
-
-        <!-- STEP 3: Pickup/Drop off + RoundTrip + Date/Time -->
-        <div class="step-pane" :class="{'active-pane': currentStep === 3}">
-          <h3 class="step-heading">Journey Details</h3>
-          <p class="step-description">Set pickup, drop off & travel preferences</p>
-          <hr>
-          <!-- Pickup Location -->
-          <div class="form-row">
-            <div class="form-group full-width">
-              <LocationInput
-                  v-model="formData.pickupLocation"
-                  label="Pickup Location"
-                  placeholder="Enter pickup address"
-                  :required="true"
-                  :error-message="fieldErrors.pickupLocation"
-                  input-ref="pickupInput"
-                  field-key="pickup"
-                  @validate="validateField"
-                  @blur="validateField"
-                  @placeSelected="handlePuSelected"
-              />
-            </div>
-          </div>
-
-          <!-- Drop off Location -->
-          <div class="form-row">
-            <div class="form-group full-width">
-              <LocationInput
-                  v-model="formData.dropOffLocation"
-                  label="Drop off Location"
-                  placeholder="Enter drop off address"
-                  :required="true"
-                  :error-message="fieldErrors.dropOffLocation"
-                  input-ref="dropoffInput"
-                  field-key="dropoff"
-                  @validate="validateField"
-                  @blur="validateField"
-                  @placeSelected="handleDropOffSelected"
-              />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group datepicker-input">
-              <label>Pickup Date & Time <span class="required">*</span></label>
-              <input type="datetime-local" v-model="formData.pickupDateTime" @blur="validateField('pickupDateTime')">
-              <div class="error-msg" v-if="fieldErrors.pickupDateTime">{{ fieldErrors.pickupDateTime }}</div>
-            </div>
-            <div class="form-group checkbox-group" style="justify-content: flex-start; margin-top: 1.5rem;">
-              <input type="checkbox" id="roundtrip" v-model="formData.isRoundTrip">
-              <label for="roundtrip" style="text-transform: none; font-weight: 500;">Round trip (return journey)</label>
-            </div>
-          </div>
-
-          <div class="form-row" v-if="formData.isRoundTrip">
-            <div class="form-group datepicker-input">
-              <label>Return Pickup Date & Time <span class="required">*</span></label>
-              <input type="datetime-local" v-model="formData.returnPickupDateTime"
-                     @blur="validateField('returnPickupDateTime')">
-              <div class="error-msg" v-if="fieldErrors.returnPickupDateTime">{{
-                  fieldErrors.returnPickupDateTime
-                }}
+            <div class="form-row">
+              <div class="form-group">
+                <label>Primary Phone <span class="required">*</span></label>
+                <input type="tel" v-model="formData.primaryPhone" placeholder="+1 234 567 8900"
+                       @blur="validateField('primaryPhone')">
+                <div class="error-msg" v-if="fieldErrors.primaryPhone">{{ fieldErrors.primaryPhone }}</div>
+              </div>
+              <div class="form-group">
+                <label>Secondary Phone</label>
+                <input type="tel" v-model="formData.secondaryPhone" placeholder="Optional">
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label>Email Address <span class="required">*</span></label>
+                <input type="email" v-model="formData.email" placeholder="john.doe@example.com"
+                       @blur="validateField('email')">
+                <div class="error-msg" v-if="fieldErrors.email">{{ fieldErrors.email }}</div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Total Passengers <span class="required">*</span></label>
+                <input type="number" v-model="formData.passengers" placeholder="Enter number of passengers"
+                       @blur="validateField('passengers')">
+                <div class="error-msg" v-if="fieldErrors.passengers">{{ fieldErrors.passengers }}</div>
+              </div>
+              <div class="form-group">
+                <label>Luggage Pieces<span class="required">*</span></label>
+                <input type="number" v-model="formData.luggage" placeholder="Enter number of luggage pieces"
+                       @blur="validateField('luggage')">
+                <div class="error-msg" v-if="fieldErrors.luggage">{{ fieldErrors.luggage }}</div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group checkbox-group"
+                   style="justify-content: flex-start; margin-top: 1.5rem; align-items: center;">
+                <p style="text-transform: none; cursor: pointer; font-size: 1rem; text-align: justify;"
+                   @click="formData.optedIn = !formData.optedIn">
+                  <input type="checkbox" id="opted-in" v-model="formData.optedIn">
+                  Do you agree to receive travel and service update messages from <b>ride2theairports.com</b>? Message /
+                  data rates may apply. You can reply <b>STOP</b> to cancel this consent any time.</p>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
+              <button class="btn btn-primary" @click="nextStep(2)">Next: Location & Time <i
+                  class="fas fa-arrow-right"></i></button>
+            </div>
           </div>
 
-          <div class="summary-text" v-if="formData.selectedCar">
-            <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
-            Name : {{ formData.fullName || 'Guest' }} |&nbsp;
-            Phone : {{ formData.primaryPhone || 'No Phone number' }} |
-            Email: {{ formData.email || 'No Email' }} |
-            Passengers : {{ formData.passengers || '-' }} |
-            Luggage Pieces : {{ formData.luggage || '-' }} |
-            Messaging : {{ (formData.optedIn? 'Opted-in': 'Not opted-in') || '' }}
+          <!-- STEP 3: Pickup/Drop off + RoundTrip + Date/Time -->
+          <div class="step-pane" :class="{'active-pane': currentStep === 3}">
+            <h3 class="step-heading">Journey Details</h3>
+            <p class="step-description">Set pickup, drop off & travel preferences</p>
+            <hr>
+            <!-- Pickup Location -->
+            <div class="form-row">
+              <div class="form-group full-width">
+                <LocationInput
+                    v-model="formData.pickupLocation"
+                    label="Pickup Location"
+                    placeholder="Enter pickup address"
+                    :required="true"
+                    :error-message="fieldErrors.pickupLocation"
+                    input-ref="pickupInput"
+                    field-key="pickup"
+                    @validate="validateField"
+                    @blur="validateField"
+                    @placeSelected="handlePuSelected"
+                />
+              </div>
+            </div>
+
+            <!-- Drop off Location -->
+            <div class="form-row">
+              <div class="form-group full-width">
+                <LocationInput
+                    v-model="formData.dropOffLocation"
+                    label="Drop off Location"
+                    placeholder="Enter drop off address"
+                    :required="true"
+                    :error-message="fieldErrors.dropOffLocation"
+                    input-ref="dropoffInput"
+                    field-key="dropoff"
+                    @validate="validateField"
+                    @blur="validateField"
+                    @placeSelected="handleDropOffSelected"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group datepicker-input">
+                <label>Pickup Date & Time <span class="required">*</span></label>
+                <input type="datetime-local" v-model="formData.pickupDateTime" @blur="validateField('pickupDateTime')">
+                <div class="error-msg" v-if="fieldErrors.pickupDateTime">{{ fieldErrors.pickupDateTime }}</div>
+              </div>
+              <div class="form-group checkbox-group" style="justify-content: flex-start; margin-top: 1.5rem;">
+                <input type="checkbox" id="roundtrip" v-model="formData.isRoundTrip">
+                <label for="roundtrip" style="text-transform: none; font-weight: 500;">Round trip (return
+                  journey)</label>
+              </div>
+            </div>
+
+            <div class="form-row" v-if="formData.isRoundTrip">
+              <div class="form-group datepicker-input">
+                <label>Return Pickup Date & Time <span class="required">*</span></label>
+                <input type="datetime-local" v-model="formData.returnPickupDateTime"
+                       @blur="validateField('returnPickupDateTime')">
+                <div class="error-msg" v-if="fieldErrors.returnPickupDateTime">{{
+                    fieldErrors.returnPickupDateTime
+                  }}
+                </div>
+              </div>
+            </div>
+
+            <div class="summary-text" v-if="formData.selectedCar">
+              <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
+              Name : {{ formData.fullName || 'Guest' }} |&nbsp;
+              Phone : {{ formData.primaryPhone || 'No Phone number' }} |
+              Email: {{ formData.email || 'No Email' }} |
+              Passengers : {{ formData.passengers || '-' }} |
+              Luggage Pieces : {{ formData.luggage || '-' }} |
+              Messaging : {{ (formData.optedIn ? 'Opted-in' : 'Not opted-in') || '' }}
+            </div>
+            <div class="button-group">
+              <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
+              <button class="btn btn-primary btn-success" @click="submitBooking"
+                      :disabled="isSubmitting">
+                <span v-if="isSubmitting">Submitting...</span>
+                <span v-else>Submit Booking</span>
+              </button>
+            </div>
           </div>
-          <div class="button-group">
-            <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
-            <button class="btn btn-primary btn-success" @click="submitBooking"> Submit <i
-                class="fas fa-check-circle"></i></button>
+        </div>
+      </template>
+      <div class="submission-result" v-if="submitSuccessMessage || submitErrorMessage">
+        <div class="submission-success" v-if="submitSuccessMessage">
+          <div class="success-message">
+            <p>{{ submitSuccessMessage }}</p>
+          </div>
+          <button class="btn btn-primary" @click="resetWidget">Book another trip</button>
+        </div>
+        <div class="submission-error" v-else>
+          <div class="error-message">
+            <h4><b>An error has been occurred!</b></h4>
+            <p>{{ submitErrorMessage }}</p>
           </div>
         </div>
       </div>
@@ -250,6 +275,8 @@ export default {
       stepErrors: {
         car: false
       },
+      submitSuccessMessage: null,
+      submitErrorMessage: null,
       fieldErrors: {
         fullName: '',
         primaryPhone: '',
@@ -360,7 +387,7 @@ export default {
         const phone = this.formData.primaryPhone.trim();
         if (!phone)
           error = 'Primary phone is required';
-        else if (!/^[\+\d\s\-\(\)]{7,20}$/.test(phone))
+        else if (!/^[+\d\s\-()]{7,20}$/.test(phone))
           error = 'Enter a valid phone number';
       } else if (field === 'email') {
         const email = this.formData.email.trim();
@@ -477,17 +504,67 @@ export default {
         dropOffLocationLng: this.formData.dropOffLocationLng,
         pickupDateTime: this.formData.pickupDateTime,
         isRoundTrip: this.formData.isRoundTrip,
+        optedIn: this.formData.optedIn,
         returnPickupDateTime: this.formData.isRoundTrip ? this.formData.returnPickupDateTime : null
       };
       console.log('Booking details:', bookingPayload);
       this.sendBookingRequest(bookingPayload);
     },
+
     async sendBookingRequest(data) {
+      this.submitSuccessMessage = null;
+      this.submitErrorMessage = null;
       this.isSubmitting = true;
       const response = await this.$api.post('/save-booking', data);
       console.log('Booking request response:', response);
       this.isSubmitting = false;
-    }
+      if (response.data.success) {
+        this.resetForm();
+        this.submitSuccessMessage = response.data?.external_api_response?.message;
+      } else {
+        this.submitErrorMessage = response.data?.message;
+        console.error('Booking request failed:', response.data.message);
+      }
+    },
+
+    resetForm() {
+      this.formData = {
+        selectedCar: null,
+        fullName: '',
+        primaryPhone: '',
+        optedIn: false,
+        secondaryPhone: '',
+        email: '',
+        passengers: '',
+        luggage: '',
+        pickupLocation: '',
+        pickupLocationLat: '',
+        pickupLocationLng: '',
+        dropOffLocation: '',
+        dropOffLocationLat: '',
+        dropOffLocationLng: '',
+        pickupDateTime: '',
+        isRoundTrip: false,
+        returnPickupDateTime: '',
+        vehicleTypeId: null,
+      }
+    },
+    resetWidget() {
+      this.currentStep = 1;
+      this.resetForm();
+      this.submitSuccessMessage = null;
+      this.submitErrorMessage = null;
+      this.fieldErrors = {
+        fullName: '',
+        primaryPhone: '',
+        email: '',
+        passengers: '',
+        luggage: '',
+        pickupLocation: '',
+        dropOffLocation: '',
+        pickupDateTime: '',
+      }
+    },
   },
   watch: {
     'formData.returnPickupDateTime'(newVal) {
@@ -498,7 +575,44 @@ export default {
 </script>
 
 <style scoped>
-/* Keep all existing styles except remove place-suggestions and location input specific styles */
+.submission-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 0 2rem 2rem 2rem;
+}
+
+.submission-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.success-message {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #2c7a4d;
+  margin-bottom: 1rem;
+}
+
+.submission-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.error-message {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #dc2626;
+}
+
 .booking-widget-wrapper {
   padding: 5px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -651,7 +765,7 @@ input:focus {
   cursor: pointer;
 }
 
-.btn-step-1{
+.btn-step-1 {
   margin-top: auto;
 }
 

@@ -88,6 +88,7 @@ class MEVP_Booking_Handler {
             'is_return_trip' => isset($params['isRoundTrip']) ? sanitize_text_field($params['isRoundTrip']) : '',
             'pu_return_datetime' => isset($params['returnPickupDateTime']) ? sanitize_text_field($params['returnPickupDateTime']) : '',
             'special_requests' => isset($params['special_requests']) ? sanitize_textarea_field($params['special_requests']) : '',
+            'opted_in' => isset($params['optedIn']) ? sanitize_textarea_field($params['optedIn']) : '',
             'status' => 'pending'
         );
     }

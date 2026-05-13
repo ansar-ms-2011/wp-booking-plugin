@@ -34,16 +34,31 @@
           <hr>
           <div class="car-grid">
             <div v-for="car in carOptions" :key="car.id" class="car-card"
-                 :class="{'selected': formData.selectedCar === car.id}" @click="selectCar(car.id)">
-              <div class="car-icon"><i :class="car.icon"></i></div>
-              <div class="car-name">{{ car.name }}</div>
-              <div class="car-desc">{{ car.desc }}</div>
+                 :class="{'selected': formData.selectedCar === car.id}"
+                 :style="{ backgroundImage: `url(${car.image_url})` }"
+                 @click="selectCar(car.id)">
+
+              <div class="car-bottom">
+                <div class="car-name">
+                  {{ car.name }}
+                </div>
+                <div class="car-desc">
+                  <i class="fas fa-ellipsis-h"></i> {{ car.desc }}
+                </div>
+              </div>
+
+              <!-- CENTER GREEN CHECKMARK when this car is selected (exactly center of image) -->
+              <div v-if="formData.selectedCar === car.id" class="selected-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+                  <path d="M20 60 L45 85 L100 25" stroke="#FFF" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
             </div>
           </div>
           <div class="error-msg" v-if="stepErrors.car && !formData.selectedCar">Please select a car to continue.</div>
-          <div class="button-group">
+          <div class="button-group-step-1">
             <div></div>
-            <button class="btn btn-primary" @click="nextStep(1)">Next: Personal Info <i class="fas fa-arrow-right"></i>
+            <button class="btn btn-primary btn-step-1" @click="nextStep(1)">Next: Personal Info <i class="fas fa-arrow-right"></i>
             </button>
           </div>
         </div>
@@ -51,7 +66,7 @@
         <!-- STEP 2: Personal Details -->
         <div class="step-pane" :class="{'active-pane': currentStep === 2}">
           <h3 class="step-heading">Who's travelling?</h3>
-          <p class="step-description">Please provide your contact details</p>
+          <p class="step-description">Please provide complete details of the passenger(s).</p>
           <hr>
           <div class="form-row">
             <div class="form-group full-width">
@@ -92,6 +107,14 @@
               <input type="number" v-model="formData.luggage" placeholder="Enter number of luggage pieces"
                      @blur="validateField('luggage')">
               <div class="error-msg" v-if="fieldErrors.luggage">{{ fieldErrors.luggage }}</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group checkbox-group" style="justify-content: flex-start; margin-top: 1.5rem; align-items: center;">
+              <p style="text-transform: none; cursor: pointer; font-size: 1rem; text-align: justify;" @click="formData.optedIn = !formData.optedIn">
+                <input type="checkbox" id="opted-in" v-model="formData.optedIn">
+                Do you agree to receive travel and service update messages from <b>ride2theairports.com</b>? Message / data rates may apply. You can reply <b>STOP</b> to cancel this consent any time.</p>
             </div>
           </div>
 
@@ -158,14 +181,23 @@
           <div class="form-row" v-if="formData.isRoundTrip">
             <div class="form-group datepicker-input">
               <label>Return Pickup Date & Time <span class="required">*</span></label>
-              <input type="datetime-local" v-model="formData.returnPickupDateTime" @blur="validateField('returnPickupDateTime')">
-              <div class="error-msg" v-if="fieldErrors.returnPickupDateTime">{{ fieldErrors.returnPickupDateTime }}</div>
+              <input type="datetime-local" v-model="formData.returnPickupDateTime"
+                     @blur="validateField('returnPickupDateTime')">
+              <div class="error-msg" v-if="fieldErrors.returnPickupDateTime">{{
+                  fieldErrors.returnPickupDateTime
+                }}
+              </div>
             </div>
           </div>
 
           <div class="summary-text" v-if="formData.selectedCar">
-            <i class="fas fa-car"></i> <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
-            <i class="fas fa-user"></i> {{ formData.fullName || 'Guest' }}
+            <strong>Selected:</strong> {{ getCarName() }} &nbsp;|&nbsp;
+            Name : {{ formData.fullName || 'Guest' }} |&nbsp;
+            Phone : {{ formData.primaryPhone || 'No Phone number' }} |
+            Email: {{ formData.email || 'No Email' }} |
+            Passengers : {{ formData.passengers || '-' }} |
+            Luggage Pieces : {{ formData.luggage || '-' }} |
+            Messaging : {{ (formData.optedIn? 'Opted-in': 'Not opted-in') || '' }}
           </div>
           <div class="button-group">
             <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
@@ -197,6 +229,7 @@ export default {
         selectedCar: null,
         fullName: '',
         primaryPhone: '',
+        optedIn: false,
         secondaryPhone: '',
         email: '',
         passengers: '',
@@ -274,10 +307,11 @@ export default {
                 id: car.id,
                 name: car.name,
                 desc: `Luggage: ${car.max_luggage} | Seats: ${car.max_passengers}`,
-                icon: 'fas fa-car'
+                icon: 'fas fa-car',
+                image_url: car.image_url,
               })
             })
-          }catch (e) {
+          } catch (e) {
             this.carLoadingError = true
             console.error('Error parsing cars:', e);
           }
@@ -334,7 +368,7 @@ export default {
           error = 'Email is required';
         else if (!/^\S+@\S+\.\S+$/.test(email))
           error = 'Enter a valid email address';
-      } else if (field === 'passengers'){
+      } else if (field === 'passengers') {
         if (!this.formData.passengers.trim())
           error = 'Total passengers is required';
       } else if (field === 'luggage') {
@@ -357,7 +391,7 @@ export default {
       } else if (field === 'returnPickupDateTime') {
         if (this.formData.isRoundTrip && !this.formData.returnPickupDateTime.trim()) {
           error = 'Return pickup date & time is required for round trip';
-        }else{
+        } else {
           if (this.formData.isRoundTrip) {
             const returnDate = new Date(this.formData.returnPickupDateTime);
             if (returnDate < new Date()) {
@@ -552,49 +586,6 @@ export default {
   }
 }
 
-.car-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1.2rem;
-  margin: 0.5rem 0 1.2rem;
-}
-
-.car-card {
-  background: #ffffff;
-  border: 2px solid #e2e8f0;
-  border-radius: 1.2rem;
-  padding: 1rem 0.8rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.car-card:hover {
-  border-color: #94a3b8;
-  transform: translateY(-3px);
-}
-
-.car-card.selected {
-  border-color: #1e4f8a;
-  background: #f0f9ff;
-}
-
-.car-icon {
-  font-size: 2.8rem;
-  margin-bottom: 0.5rem;
-  color: #2c3e66;
-}
-
-.car-name {
-  font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.car-desc {
-  font-size: 0.75rem;
-  color: #5b6e8c;
-}
-
 .form-row {
   display: flex;
   flex-wrap: wrap;
@@ -660,16 +651,19 @@ input:focus {
   cursor: pointer;
 }
 
-.return-location {
-  margin-top: 0.8rem;
-  padding-left: 0.5rem;
-  border-left: 3px solid #cbd5e1;
-  transition: 0.2s;
+.btn-step-1{
+  margin-top: auto;
 }
 
 .button-group {
   display: flex;
   justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.button-group-step-1 {
+  display: flex;
+  justify-content: center;
   margin-top: 2rem;
 }
 
@@ -720,10 +714,6 @@ input:focus {
     padding: 1.2rem;
   }
 
-  .car-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .step-tab span:not(.step-num) {
     display: none;
   }
@@ -768,17 +758,228 @@ input:focus {
   overflow: hidden;
   margin: 0 auto;
 }
-.step-heading{
+
+.step-heading {
   margin-top: 2px;
   margin-bottom: 2px;
 }
-.step-description{
+
+.step-description {
   color: #475569;
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 2px;
   margin-bottom: 0;
 }
-.datepicker-input{
+
+.datepicker-input {
   max-width: 50% !important;
+}
+
+
+/*-----------------------*/
+.car-grid {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4rem;
+  margin: 0 auto;
+}
+
+/* Car card: flexible width but with a base size to prevent overlapping */
+.car-card {
+  position: relative;
+  flex: 0 1 180px;
+  height: 180px;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.25s ease-out;
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgb(46 44 44);
+}
+
+/* Hover lift effect but keep size */
+.car-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.5);
+  border-color: rgb(46, 204, 113);
+}
+
+/* Selected glow without changing dimensions */
+.car-card.selected {
+  box-shadow: 0 0 0 2px #2ecc71, 0 8px 20px rgba(0, 0, 0, 0.5);
+  border: 1px solid #2ecc71;
+}
+
+/* Gradient overlay for better text contrast (especially near bottom) */
+.car-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.1) 80%);
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* all interactive content sits above overlay */
+.car-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Bottom text container: car name exactly near the bottom of image */
+.car-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 8px 10px 10px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 70%, transparent 100%);
+  border-radius: 0 0 1.25rem 1.25rem;
+  z-index: 3;
+  text-align: left;
+}
+
+.car-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: -0.2px;
+  color: white;
+  text-shadow: 0 1px 3px black;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 1.2;
+}
+
+/* optional tiny description (kept minimal for 150px) */
+.car-desc {
+  font-size: 0.6rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.2px;
+}
+
+.car-desc i {
+  font-size: 0.45rem;
+  color: #2ecc71;
+}
+
+/* GREEN CHECKMARK: EXACTLY CENTER OF IMAGE (both axis centered) */
+.selected-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  background: #2ecc71;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(46, 204, 113, 0.4);
+  animation: softPop 0.2s cubic-bezier(0.34, 1.2, 0.64, 1);
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+  padding: 8px;
+}
+
+.selected-badge i {
+  font-size: 1.8rem;
+  color: white;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+}
+
+/* subtle pop for marker */
+@keyframes softPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* responsive: when screen is extremely narrow (<360px), shrink card size */
+@media (max-width: 380px) {
+  .car-grid {
+    gap: 0.75rem;
+  }
+
+  .car-card {
+    flex-basis: 140px;
+    height: 140px;
+  }
+
+  .app-container {
+    padding: 1rem;
+  }
+
+  .selected-badge {
+    width: 42px;
+    height: 42px;
+  }
+
+  .selected-badge i {
+    font-size: 1.5rem;
+  }
+
+  .car-name {
+    font-size: 0.75rem;
+  }
+
+  .car-desc {
+    font-size: 0.55rem;
+  }
+}
+
+/* ensure even on very small devices cards shrink correctly */
+@media (max-width: 320px) {
+  .car-card {
+    flex-basis: 135px;
+    height: 135px;
+  }
+}
+
+/* additional micro-interaction */
+.car-card:active {
+  transform: scale(0.97);
+}
+
+footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.65rem;
+  color: #9aaebf;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.8rem;
+}
+
+footer i {
+  color: #2ecc71;
+  font-size: 0.55rem;
 }
 </style>

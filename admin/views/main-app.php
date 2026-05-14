@@ -11,7 +11,7 @@ wp_localize_script('mevp-app-script', 'mevpData', [
 ]);
 
 ?>
-<div class="wrap mevp-admin-wrap">
+<div class="wrap mevp-admin-wrap" id="book-now">
     <div id="mevp-app">
         <div class="mevp-loading">
             <div class="elementor-loader-wrapper">

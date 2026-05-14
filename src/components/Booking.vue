@@ -71,7 +71,7 @@
             <h3 class="step-heading">Who's travelling?</h3>
             <p class="step-description">Please provide complete details of the passenger(s).</p>
             <hr>
-            <div class="form-row">
+            <div class="form-row" style="margin-top: 50px;">
               <div class="form-group full-width">
                 <label>First Name <span class="required">*</span></label>
                 <input type="text" v-model="formData.fullName" placeholder="John Doe" @blur="validateField('fullName')">
@@ -137,7 +137,7 @@
             <p class="step-description">Set pickup, drop off & travel preferences</p>
             <hr>
             <!-- Pickup Location -->
-            <div class="form-row">
+            <div class="form-row" style="margin-top: 50px;">
               <div class="form-group full-width">
                 <LocationInput
                     v-model="formData.pickupLocation"
@@ -616,15 +616,16 @@ export default {
 .booking-widget-wrapper {
   padding: 5px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 500px;
 }
 
 /* Booking widget styles */
 .booking-widget {
-  background: yellow;
-  max-width: 980px;
+  background: #ffe28c !important;
   width: 100%;
+  max-width: 1060px;
   border-radius: 2rem;
-  box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.2);
+  box-shadow: 20px 20px 60px #bebebe;
   overflow: hidden;
   margin: 0 auto;
 }
@@ -794,7 +795,7 @@ input:focus {
 
 .btn-primary {
   background: #1e4f8a;
-  color: white;
+  color: white !important;
 }
 
 .btn-primary:hover {
@@ -833,13 +834,6 @@ input:focus {
   }
 }
 
-
-.booking-widget-wrapper {
-  padding: 5px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  min-height: 500px;
-}
-
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -862,16 +856,6 @@ input:focus {
   font-size: 1rem;
 }
 
-/* Rest of your existing styles remain the same */
-.booking-widget {
-  background: yellow;
-  max-width: 980px;
-  width: 100%;
-  border-radius: 2rem;
-  box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-  margin: 0 auto;
-}
 
 .step-heading {
   margin-top: 2px;
@@ -897,15 +881,15 @@ input:focus {
   flex-wrap: wrap;
   justify-content: center;
   gap: 4rem;
-  margin: 0 auto;
+  margin: 50px auto;
 }
 
 /* Car card: flexible width but with a base size to prevent overlapping */
 .car-card {
   position: relative;
-  flex: 0 1 180px;
-  height: 180px;
-  border-radius: 1.25rem;
+  flex: 0 1 300px;
+  height: 220px;
+  border-radius: 0.89rem;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.25s ease-out;
@@ -937,7 +921,7 @@ input:focus {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.1) 80%);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.4) 15%, rgba(0, 0, 0, 0.1) 80%);
   z-index: 1;
   pointer-events: none;
   border-radius: inherit;
@@ -964,8 +948,8 @@ input:focus {
 
 .car-name {
   font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: -0.2px;
+  font-size: 1.5rem;
+  letter-spacing: 1px;
   color: white;
   text-shadow: 0 1px 3px black;
   margin-bottom: 2px;
@@ -977,14 +961,14 @@ input:focus {
 
 /* optional tiny description (kept minimal for 150px) */
 .car-desc {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   gap: 4px;
-  letter-spacing: 0.2px;
+  letter-spacing: 1px;
 }
 
 .car-desc i {

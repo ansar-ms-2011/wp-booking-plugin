@@ -23,7 +23,7 @@ wp_localize_script('mevp-app-script', 'mevpData', [
                         <div class="elementor-loader-box"></div>
                     </div>
                 </div>
-                <div class="elementor-loading-title">Loading plugin ..</div>
+                <div class="elementor-loading-title">Loading booking plugin...</div>
             </div>
         </div>
     </div>

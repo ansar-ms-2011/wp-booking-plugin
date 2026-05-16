@@ -4,7 +4,7 @@ import store from './store';
 import api from './api/client';
 
 Vue.prototype.$api = api;
-
+Vue.prototype.withCredentials = true;
 Vue.config.productionTip = false;
 
 new Vue({

@@ -47,6 +47,25 @@ class MEVP_API_Handler {
             'callback' => array($this, 'save_booking_data'),
             'permission_callback' => array($this, 'check_permission')
         ));
+
+        register_rest_route('mevp/v1', '/refresh-nonce', array(
+            'methods' => 'GET',
+            'callback' => function() {
+                // Return a fresh nonce. This endpoint shouldn't be cached.
+                return rest_ensure_response(array(
+                    'nonce' => wp_create_nonce('wp_rest')
+                ));
+            },
+            'permission_callback' => '__return_true'
+        ));
+
+        // Add a filter to prevent caching for the refresh-nonce endpoint
+        add_filter('rest_pre_serve_request', function($served, $result, $request, $server) {
+            if ($request->get_route() === '/mevp/v1/refresh-nonce') {
+                header('Cache-Control: no-cache, must-revalidate, max-age=0');
+            }
+            return $served;
+        }, 10, 4);
     }
 
     public function save_booking_data($request)

@@ -4,8 +4,8 @@ add_action('admin_menu', 'mevp_add_admin_menu');
 function mevp_add_admin_menu()
 {
     add_options_page(
-            'MEVP Settings',
-            'MEVP Settings',
+            'Booking Plugin',
+            'Booking Plugin',
             'manage_options',
             'mevp-settings',
             'mevp_settings_page'

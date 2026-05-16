@@ -1,0 +1,85 @@
+/* responsive rules */
+@media (max-width: 768px) {
+    .car-grid{
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .step-line{
+        margin-bottom: 35px;
+    }
+}
+
+@media (max-width: 680px) {
+
+    .form-container {
+        padding: 1.2rem;
+    }
+
+    .step-tab span:not(.step-num) {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .booking-widget-heading{
+        font-size: 21px;
+        font-weight: 700;
+    }
+    .btn {
+        padding: 0.5rem 1.5rem;
+        border-radius: 1.5rem;
+        font-weight: 500;
+        border: none;
+        font-size: 0.65rem;
+    }
+    .step-line{
+        margin-bottom: 25px;
+    }
+}
+
+@media (max-width: 380px) {
+    .car-grid {
+        gap: 0.75rem;
+    }
+
+    .car-card {
+        flex-basis: 240px;
+        height: 140px;
+    }
+
+    .app-container {
+        padding: 1rem;
+    }
+
+    .selected-badge {
+        width: 42px;
+        height: 42px;
+    }
+
+    .selected-badge i {
+        font-size: 1.5rem;
+    }
+
+    .car-name {
+        font-size: 0.75rem;
+    }
+
+    .car-desc {
+        font-size: 0.55rem;
+    }
+    .step-line{
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 320px) {
+    .car-card {
+        flex-basis: 233px;
+        height: 135px;
+    }
+
+    .step-line{
+        margin-bottom: 5px;
+    }
+}

@@ -1,5 +1,5 @@
 {
-  "name": "my-elementor-vue-plugin",
+  "name": "wp-booking-plugin",
   "version": "1.0.0",
   "description": "WordPress plugin with Vue.js and Elementor-style UI",
   "scripts": {

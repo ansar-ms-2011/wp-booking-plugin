@@ -18,10 +18,12 @@ function mevp_register_settings()
     register_setting('mevp_settings_group', 'mevp_google_maps_api_key', [
             'sanitize_callback' => 'mevp_encrypt_sensitive_data'
     ]);
-    register_setting('mevp_settings_group', 'mevp_api_base_url');
     register_setting('mevp_settings_group', 'mevp_api_key', [
             'sanitize_callback' => 'mevp_encrypt_sensitive_data'
     ]);
+    register_setting('mevp_settings_group', 'mevp_api_base_url');
+    register_setting('mevp_settings_group', 'mevp_zapier_webhook_url');
+
 }
 
 // Sanitize and encrypt sensitive data
@@ -51,6 +53,7 @@ function mevp_settings_page()
         $google_maps_key = sanitize_text_field(isset($_POST['mevp_google_maps_api_key']) ? $_POST['mevp_google_maps_api_key'] : '');
         $api_key = sanitize_text_field(isset($_POST['mevp_api_key']) ? $_POST['mevp_api_key'] : '');
         $base_url = esc_url_raw(isset($_POST['mevp_api_base_url']) ? $_POST['mevp_api_base_url'] : '');
+        $zapier_webhook_url = esc_url_raw(isset($_POST['mevp_zapier_webhook_url']) ? $_POST['mevp_zapier_webhook_url'] : '');
 
         // Encrypt and save
         if (!empty($google_maps_key)) {
@@ -63,6 +66,8 @@ function mevp_settings_page()
 
         update_option('mevp_api_base_url', $base_url);
 
+        update_option('mevp_zapier_webhook_url', $zapier_webhook_url);
+
         echo '<div class="notice notice-success"><p>Settings saved!</p></div>';
     }
 
@@ -70,6 +75,7 @@ function mevp_settings_page()
     $google_maps_key = mevp_get_google_maps_api_key();
     $api_key = mevp_get_api_key();
     $base_url = get_option('mevp_api_base_url', '');
+    $zapier_webhook_url = get_option('mevp_zapier_webhook_url', '');
     ?>
     <div class="wrap">
         <div class="mevp-settings-container">
@@ -93,6 +99,21 @@ function mevp_settings_page()
                                    class="regular-text"/>
                             <p class="description">
                                 <span style="font-size: 12px;">Enter the base URL for your API (not encrypted)</span>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="mevp_zapier_webhook_url">Zapier Webhook URL</label>
+                        </th>
+                        <td>
+                            <input type="url"
+                                   name="mevp_zapier_webhook_url"
+                                   id="mevp_zapier_webhook_url"
+                                   value="<?php echo esc_attr($zapier_webhook_url); ?>"
+                                   class="regular-text mevp-zapier-webhook-url"/>
+                            <p class="description">
+                                <span style="font-size: 12px;">Enter the Zapier Webhook URL</span>
                             </p>
                         </td>
                     </tr>
@@ -454,7 +475,7 @@ function mevp_settings_page()
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .mevp-google-maps-key, .mevp-api-key {
+        .mevp-google-maps-key, .mevp-api-key, .mevp-zapier-webhook-url {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;

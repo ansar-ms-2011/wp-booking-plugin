@@ -32,14 +32,17 @@ function onRefreshed(nonce) {
 apiClient.interceptors.response.use(
     response => response,
     async error => {
-        const { config, response } = error;
+        const {config, response} = error;
         const originalRequest = config;
 
-        if (response && response.data && response.data.code === 'rest_cookie_invalid_nonce') {
+        if (response && (response.status === 403 ||
+            (response.data && response.data.code === 'rest_cookie_invalid_nonce'))) {
             if (!isRefreshing) {
                 isRefreshing = true;
+                console.log('Refreshing nonce...');
                 try {
-                    const { data } = await axios.get(`${mevp_ajax.rest_url}refresh-nonce`);
+                    let timestamp = new Date().getTime();
+                    const {data} = await axios.get(`${mevp_ajax.rest_url}refresh-nonce?t=${timestamp}`);
                     const newNonce = data.nonce;
                     mevp_ajax.rest_nonce = newNonce;
                     isRefreshing = false;

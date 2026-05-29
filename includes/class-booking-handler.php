@@ -36,6 +36,9 @@ class MEVP_Booking_Handler {
 
         $local_booking_id = $this->save_booking_to_local_db($params, $external_api_response);
 
+        // ***** ZAPIER WEBHOOK INTEGRATION - BACKGROUND PROCESSING *****
+        $this->trigger_zapier_webhook($local_booking_id, $booking_data, $external_api_response);
+
         delete_transient('mevp_bookings_cache');
 
         return rest_ensure_response(array(
@@ -101,7 +104,7 @@ class MEVP_Booking_Handler {
             'Authorization' => 'Bearer ' . $api_key,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
-            'User-Agent' => 'WordPress/MEVP-Plugin/1.0'
+            'User-Agent' => 'WordPress/WP-Booking-Plugin/1.0'
         );
 
         $args = array(
@@ -171,5 +174,78 @@ class MEVP_Booking_Handler {
         $date = date('Ymd');
         $random = strtoupper(substr(uniqid(), -6));
         return $prefix . $date . '_' . $random;
+    }
+
+    /******* Zapier Webhook Integration *******/
+    /**  https://hooks.zapier.com/hooks/catch/27707332/4oqf4pr/ My Account
+     *  https://hooks.zapier.com/hooks/catch/27697901/4og6caq/   Client
+     * Trigger Zapier webhook with a non-blocking HTTP request
+     * No cron needed - sends immediately but doesn't wait for response
+     */
+    private function trigger_zapier_webhook($local_booking_id, $booking_data, $external_api_response) {
+        $zapier_webhook_url = get_option('mevp_zapier_webhook_url', '');
+
+        // Only proceed if URL is configured
+        if (empty($zapier_webhook_url)) {
+            return;
+        }
+
+        // Prepare the data to send to Zapier
+        $zapier_payload = array(
+//            'local_booking_id' => $local_booking_id,
+//            'booking_reference' => $booking_data['booking_id'],
+            'customer' => array(
+                'name' => $booking_data['name'],
+                'email' => $booking_data['email'],
+                'primary_phone' => $booking_data['primary_number'],
+                'secondary_phone' => $booking_data['secondary_number']
+            ),
+            'trip_details' => array(
+                'passengers' => $booking_data['passengers'],
+                'luggage_pieces' => $booking_data['luggage_pieces'],
+                'vehicle_type_id' => $booking_data['vehicle_type_id'],
+                'vehicle_type_name' => $booking_data['vehicle_type_name'],
+                'is_return_trip' => $booking_data['is_return_trip'],
+                'special_requests' => $booking_data['special_requests'],
+                'opted_in' => $booking_data['opted_in']
+            ),
+            'pickup' => array(
+                'datetime' => $booking_data['pu_datetime'],
+                'full_address' => $booking_data['pu_full_address'],
+                'latitude' => $booking_data['pu_latitude'],
+                'longitude' => $booking_data['pu_longitude']
+            ),
+            'dropoff' => array(
+                'full_address' => $booking_data['do_full_address'],
+                'latitude' => $booking_data['do_latitude'],
+                'longitude' => $booking_data['do_longitude']
+            ),
+            'return_trip' => array(
+                'pickup_datetime' => $booking_data['pu_return_datetime']
+            ),
+            'status' => $booking_data['status'],
+//            'external_api_response' => $external_api_response,
+            'created_at' => current_time('mysql'),
+            'timestamp' => time()
+        );
+
+        // Use WordPress HTTP API with blocking disabled
+        // This sends the request but doesn't wait for the response
+        wp_remote_post($zapier_webhook_url, array(
+            'method' => 'POST',
+            'timeout' => 5,           // Low timeout - if Zapier is slow, fail quickly
+            'blocking' => false,      // KEY: Don't wait for response
+            'headers' => array(
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'WordPress/WP-Booking-Plugin/1.1.1'
+            ),
+            'body' => json_encode($zapier_payload),
+            'sslverify' => defined('WP_DEBUG') && WP_DEBUG ? false : true
+        ));
+
+        // Log that webhook was triggered (optional, for debugging)
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('MEVP Zapier webhook triggered (non-blocking) for booking ID: ' . $local_booking_id);
+        }
     }
 }

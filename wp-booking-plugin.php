@@ -3,7 +3,7 @@
  * Plugin Name: Wp Booking Plugin
  * Plugin URI: https://ride2theairports.com
  * Description: WordPress plugin with Vue.js and Elementor-style UI
- * Version: 1.0.9
+ * Version: 1.1.1
  * Author: Ansar Mehmood Khan
  * Author URI: https://ansarkhan.com
  * License: GPL v2 or later
@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('MEVP_VERSION', '1.0.9');
+define('MEVP_VERSION', '1.1.1');
 define('MEVP_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MEVP_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('MEVP_PLUGIN_BASENAME', plugin_basename(__FILE__));

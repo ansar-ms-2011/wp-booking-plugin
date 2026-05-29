@@ -97,8 +97,12 @@
                 </div>
                 <div class="form-group">
                   <label>Primary Phone <span class="required">*</span></label>
-                  <input type="tel" v-model="formData.primaryPhone" placeholder="+1 234 567 8900"
-                         @blur="validateField('primaryPhone')">
+                  <vue-tel-input
+                      @input="handlePhoneInput"
+                      v-model="formData.phoneNumber"
+                      :dropdownOptions="dropdownOptions"
+                      :inputOptions="inputOptions"
+                  ></vue-tel-input>
                   <div class="error-msg" v-if="fieldErrors.primaryPhone">{{ fieldErrors.primaryPhone }}</div>
                 </div>
               </div>
@@ -242,15 +246,17 @@
 </template>
 
 <script>
-import LocationInput from './LocationInput.vue'
-import googleMapsLoader from '../utils/googleMapsLoader'
+import LocationInput from './LocationInput.vue';
+import googleMapsLoader from '../utils/googleMapsLoader';
+
 import '../assets/booking.css';
 import '../assets/booking-responsive.css';
+
 
 export default {
   name: 'BookingWidget',
   components: {
-    LocationInput
+    LocationInput,
   },
   data() {
     return {
@@ -296,6 +302,16 @@ export default {
         pickupDateTime: '',
         returnPickupDateTime: ''
       },
+      phoneNumber: '',
+      dropdownOptions: {
+
+        showFlags: true,
+        showSearchBox: true
+      },
+
+      inputOptions: {
+        showDialCode: true
+      }
     }
   },
   async mounted() {
@@ -304,10 +320,24 @@ export default {
     await this.loadCars()
   },
   methods: {
+    handlePhoneInput(phone, phoneObject) {
+      // console.log('Phone number input:', phone, phoneObject);
+      if (phoneObject.valid) {
+        this.fieldErrors.primaryPhone = '';
+        this.formData.primaryPhone = phoneObject.number
+      } else if (phoneObject.number?.length > 0) {
+        this.formData.primaryPhone = ''
+        this.fieldErrors.primaryPhone = 'Enter a valid phone number'
+      } else {
+        this.formData.primaryPhone = ''
+        this.fieldErrors.primaryPhone = ''
+      }
+    },
     // Original loadSettings method preserved
     async loadSettings() {
       try {
-        const response = await this.$api.get('/settings');
+        let timestamp = new Date().getTime();
+        const response = await this.$api.get('/settings?t=' + timestamp);
 
         if (response.data.success) {
           this.settings = response.data.data;
@@ -331,7 +361,8 @@ export default {
     async loadCars() {
       try {
         this.carLoadingError = false;
-        const response = await this.$api.get('/get-cars');
+        let timestamp = new Date().getTime();
+        const response = await this.$api.get('/get-cars?t=' + timestamp + '');
         console.log('Cars fetched:', response.data);
         if (response.data.success) {
           this.carOptions = [];
@@ -531,10 +562,9 @@ export default {
         this.submitSuccessMessage = response.data?.external_api_response?.message;
         console.log('Booking request response:', response);
       } else {
-        if (response.data?.external_api_response?.success === false){
+        if (response.data?.external_api_response?.success === false) {
           this.submitErrorMessage = response.data?.external_api_response?.message;
-        }
-        else{
+        } else {
           this.submitErrorMessage = response.data?.message;
         }
         console.error('Booking request failed:', response.data.message);
@@ -590,4 +620,37 @@ export default {
 
 <style scoped>
 
+</style>
+<style>
+.vue-tel-input {
+  border-radius: 1rem !important;
+  border: 2px solid #e2e8f0 !important;
+  font-family: inherit;
+  font-size: 0.9rem !important;
+  transition: 0.2s !important;
+}
+
+.vue-tel-input .vti__input {
+  border-top-right-radius: 1rem !important;
+  border-bottom-right-radius: 1rem !important;
+  font-family: inherit;
+  font-size: 0.9rem !important;
+}
+
+.vue-tel-input .vti__dropdown {
+  border-top-left-radius: 1rem !important;
+  border-bottom-left-radius: 1rem !important;
+  font-family: inherit;
+}
+
+.vti__dropdown-list {
+  min-width: 290px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.vti__dropdown-list .vti__input.vti__search_box {
+  width: 92% !important;
+  border-radius: 0 !important;
+}
 </style>

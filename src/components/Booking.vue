@@ -109,7 +109,12 @@
               <div class="form-row">
                 <div class="form-group">
                   <label>Secondary Phone</label>
-                  <input type="tel" v-model="formData.secondaryPhone" placeholder="Optional">
+                  <vue-tel-input
+                      @input="handlePhoneInputSecondary"
+                      v-model="formData.phoneNumberSecondary"
+                      :dropdownOptions="dropdownOptions"
+                      :inputOptions="inputOptions"
+                  ></vue-tel-input>
                 </div>
                 <div class="form-group">
                   <label>Total Passengers <span class="required">*</span></label>
@@ -130,9 +135,9 @@
                   <p style="text-transform: none; cursor: pointer; font-size: 1rem; text-align: justify;"
                      @click="formData.optedIn = !formData.optedIn">
                     <input type="checkbox" id="opted-in" v-model="formData.optedIn">
-                    Do you agree to receive travel and service update messages from <b>ride2theairports.com</b>? Message
-                    /
-                    data rates may apply. You can reply <b>STOP</b> to cancel this consent any time.</p>
+                    I agree to receive SMS messages from Chiefton Corporation <a href="ride2theairports.com">ride2theairports.com</a> regarding booking confirmations, ride updates, pickup and drop-off notifications, and customer service communications.
+                    Message frequency varies. Message and data rates may apply.
+                    Reply STOP to opt out and HELP for assistance. By checking this box, you agree to our <a href="#">Privacy Policy </a> and <a href="#"> Terms of Service.</a></p>
                 </div>
               </div>
 
@@ -187,7 +192,7 @@
                 <div class="form-group datepicker-input">
                   <label>Pickup Date & Time <span class="required">*</span></label>
                   <input type="datetime-local" v-model="formData.pickupDateTime"
-                         @blur="validateField('pickupDateTime')">
+                         @blur="validateField('pickupDateTime')" :min="minDateTime">
                   <div class="error-msg" v-if="fieldErrors.pickupDateTime">{{ fieldErrors.pickupDateTime }}</div>
                 </div>
                 <div class="form-group checkbox-group round-trip-checkbox">
@@ -217,9 +222,11 @@
               </div>
               <div class="button-group">
                 <button class="btn btn-secondary" @click="prevStep"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn btn-primary btn-success" @click="submitBooking"
+                <button class="btn btn-primary btn-success btn-submit" @click="submitBooking"
                         :disabled="isSubmitting">
-                  <span v-if="isSubmitting">Submitting...</span>
+                  <span v-if="isSubmitting" style="display: flex; align-items: center;">
+                    <span class="spinner"></span>Submitting...
+                  </span>
                   <span v-else>Submit Booking</span>
                 </button>
               </div>
@@ -294,6 +301,7 @@ export default {
       fieldErrors: {
         fullName: '',
         primaryPhone: '',
+        secondaryPhone: '',
         email: '',
         passengers: '',
         luggage: '',
@@ -303,12 +311,11 @@ export default {
         returnPickupDateTime: ''
       },
       phoneNumber: '',
+      phoneNumberSecondary: '',
       dropdownOptions: {
-
         showFlags: true,
         showSearchBox: true
       },
-
       inputOptions: {
         showDialCode: true
       }
@@ -318,6 +325,22 @@ export default {
     await this.loadSettings()
     await this.loadGoogleMapsAPI()
     await this.loadCars()
+  },
+  computed: {
+    minDateTime() {
+      const now = new Date()
+
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
+
+      let x = now.toISOString().slice(0, 16)
+      console.log('Min datetime:', x)
+      return x;
+    }
+  },
+  watch: {
+    'formData.returnPickupDateTime'(newVal) {
+      console.log('Parent received update:', newVal)
+    }
   },
   methods: {
     handlePhoneInput(phone, phoneObject) {
@@ -331,6 +354,18 @@ export default {
       } else {
         this.formData.primaryPhone = ''
         this.fieldErrors.primaryPhone = ''
+      }
+    },
+    handlePhoneInputSecondary(phone, phoneObject) {
+      if (phoneObject.valid) {
+        this.fieldErrors.secondaryPhone = '';
+        this.formData.secondaryPhone = phoneObject.number
+      } else if (phoneObject.number?.length > 0) {
+        this.formData.secondaryPhone = ''
+        this.fieldErrors.secondaryPhone = 'Enter a valid phone number'
+      } else {
+        this.formData.secondaryPhone = ''
+        this.fieldErrors.secondaryPhone = ''
       }
     },
     // Original loadSettings method preserved
@@ -449,9 +484,14 @@ export default {
         if (!this.formData.pickupDateTime)
           error = 'Pickup date & time is required';
         else {
-          const selectedDate = new Date(this.formData.pickupDateTime);
-          if (selectedDate < new Date())
-            error = 'Pickup time must be in the future';
+          const selectedDate = new Date(this.formData.pickupDateTime)
+          const currentDate = new Date()
+          currentDate.setSeconds(0)
+          currentDate.setMilliseconds(0)
+
+          if (selectedDate.getTime() <= currentDate.getTime()) {
+            error = 'Pickup time must be in the future'
+          }
         }
       } else if (field === 'returnPickupDateTime') {
         if (this.formData.isRoundTrip && !this.formData.returnPickupDateTime.trim()) {
@@ -610,29 +650,49 @@ export default {
       }
     },
   },
-  watch: {
-    'formData.returnPickupDateTime'(newVal) {
-      console.log('Parent received update:', newVal)
-    }
-  }
 }
 </script>
 
 <style scoped>
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 10px;
+}
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn-submit:disabled {
+  background-color: #e5e7eb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
 </style>
 <style>
 .vue-tel-input {
-  border-radius: 1rem !important;
-  border: 2px solid #e2e8f0 !important;
+  border-radius: 0 !important;
+  border: none !important;
   font-family: inherit;
   font-size: 0.9rem !important;
   transition: 0.2s !important;
+  padding: 0 !important;
 }
 
 .vue-tel-input .vti__input {
-  border-top-right-radius: 1rem !important;
-  border-bottom-right-radius: 1rem !important;
+  border-radius: 0 20px 20px 0 !important;
+  padding: 0.5rem 1rem !important;
   font-family: inherit;
   font-size: 0.9rem !important;
 }
@@ -641,6 +701,14 @@ export default {
   border-top-left-radius: 1rem !important;
   border-bottom-left-radius: 1rem !important;
   font-family: inherit;
+}
+
+.vue-tel-input .vti__dropdown {
+  background-color: #f3f3f3 !important;
+}
+
+.vue-tel-input .vti__dropdown:hover {
+  background-color: #afaeae !important;
 }
 
 .vti__dropdown-list {
